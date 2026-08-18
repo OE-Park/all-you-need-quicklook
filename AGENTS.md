@@ -13,7 +13,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 ## Status
 
-Plan tasks 1–11 are on `main`. Next is Task 12 `PreviewViewController`.
+Plan tasks 1–12 are on `main`. Next is Task 13 `Host App UI`.
 
 ## Hard rules
 

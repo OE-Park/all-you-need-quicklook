@@ -2169,7 +2169,7 @@ git commit -m "chore: bundle marked.js, highlight.js, and KaTeX libraries"
 **Files:**
 - Modify: `QuickLookExtension/PreviewViewController.swift`
 
-- [ ] **Step 1: Implement PreviewViewController**
+- [x] **Step 1: Implement PreviewViewController**
 
 ```swift
 // QuickLookExtension/PreviewViewController.swift
@@ -2220,7 +2220,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2228,7 +2228,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add QuickLookExtension/PreviewViewController.swift
