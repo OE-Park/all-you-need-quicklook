@@ -2117,7 +2117,7 @@ git commit -m "feat: add PreviewWebView with CSP, navigation blocking, and sandb
 - Create: `Shared/Resources/css/highlight-dark.min.css`
 - Create: KaTeX font files
 
-- [ ] **Step 1: Download marked.js**
+- [x] **Step 1: Download marked.js**
 
 ```bash
 curl -L -o Shared/Resources/js/marked.min.js "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
@@ -2125,7 +2125,7 @@ curl -L -o Shared/Resources/js/marked.min.js "https://cdn.jsdelivr.net/npm/marke
 
 Verify: file exists and is ~50KB+
 
-- [ ] **Step 2: Download highlight.js with common languages**
+- [x] **Step 2: Download highlight.js with common languages**
 
 ```bash
 curl -L -o Shared/Resources/js/highlight.min.js "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js"
@@ -2133,7 +2133,7 @@ curl -L -o Shared/Resources/css/highlight-light.min.css "https://cdn.jsdelivr.ne
 curl -L -o Shared/Resources/css/highlight-dark.min.css "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github-dark.min.css"
 ```
 
-- [ ] **Step 3: Download KaTeX**
+- [x] **Step 3: Download KaTeX**
 
 ```bash
 curl -L -o katex.tar.gz "https://github.com/KaTeX/KaTeX/releases/download/v0.16.11/katex.tar.gz"
@@ -2145,7 +2145,7 @@ cp katex/fonts/* Shared/Resources/css/fonts/
 rm -rf katex katex.tar.gz
 ```
 
-- [ ] **Step 4: Verify all files exist**
+- [x] **Step 4: Verify all files exist**
 
 ```bash
 ls -la Shared/Resources/js/
@@ -2155,7 +2155,7 @@ ls -la Shared/Resources/css/fonts/
 
 Expected: marked.min.js, highlight.min.js, katex.min.js, katex.min.css, highlight themes, KaTeX fonts all present
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Shared/Resources/
