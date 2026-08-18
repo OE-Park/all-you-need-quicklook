@@ -74,6 +74,15 @@ final class NotebookRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("In [42]"))
     }
 
+    func testBase64ImageEscapesQuotes() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":null,"outputs":[{"output_type":"display_data","metadata":{},"data":{"image/png":"bad\\"><script>alert(1)</script>","text/plain":[""]}}]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+        XCTAssertFalse(html.contains("bad\"><script>"))
+        XCTAssertTrue(html.contains("&quot;&gt;&lt;script&gt;"))
+    }
+
     func testInvalidJSONFallback() {
         let html = renderer.render(content: "not json at all", config: config, fileExtension: "ipynb")
         XCTAssertTrue(html.contains("notebook"))

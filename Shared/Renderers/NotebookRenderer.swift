@@ -28,7 +28,7 @@ public final class NotebookRenderer: Renderer {
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.markdown-cell-raw').forEach(function(el) {
-                var raw = el.textContent;
+                var raw = el.innerHTML;
                 marked.setOptions({
                     highlight: function(code, lang) {
                         if (lang && hljs.getLanguage(lang)) {
@@ -141,10 +141,10 @@ public final class NotebookRenderer: Renderer {
     private func renderMimeData(_ data: [String: MimeData]) -> String {
         // Priority order: image > html > latex > text
         if let png = data["image/png"] {
-            return "<div class=\"cell-output\"><img src=\"data:image/png;base64,\(png.text)\"></div>"
+            return "<div class=\"cell-output\"><img src=\"data:image/png;base64,\(escapeHTML(png.text))\"></div>"
         }
         if let jpeg = data["image/jpeg"] {
-            return "<div class=\"cell-output\"><img src=\"data:image/jpeg;base64,\(jpeg.text)\"></div>"
+            return "<div class=\"cell-output\"><img src=\"data:image/jpeg;base64,\(escapeHTML(jpeg.text))\"></div>"
         }
         // text/html output from notebooks is trusted content from the notebook
         // author (same trust model as Jupyter itself). CSP blocks external scripts.
