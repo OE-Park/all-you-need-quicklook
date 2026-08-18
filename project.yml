@@ -99,6 +99,10 @@ targets:
       - target: Shared
 
 schemes:
+  AllYouNeedQuickLook:
+    build:
+      targets:
+        AllYouNeedQuickLook: all
   Tests:
     build:
       targets:
