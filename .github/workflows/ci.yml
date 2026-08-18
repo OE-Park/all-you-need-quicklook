@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Select Xcode 26.6
         uses: maxim-lobanov/setup-xcode@v1
