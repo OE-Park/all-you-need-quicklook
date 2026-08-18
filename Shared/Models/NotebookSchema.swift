@@ -207,15 +207,9 @@ private func decodeMultilineString<K: CodingKey>(
     from container: KeyedDecodingContainer<K>,
     forKey key: K
 ) throws -> [String] {
-    if let lines = try? container.decode([String].self, forKey: key) {
-        return lines
+    do {
+        return try container.decode([String].self, forKey: key)
+    } catch DecodingError.typeMismatch {
+        return [try container.decode(String.self, forKey: key)]
     }
-    if let text = try? container.decode(String.self, forKey: key) {
-        return [text]
-    }
-    throw DecodingError.dataCorruptedError(
-        forKey: key,
-        in: container,
-        debugDescription: "Expected string or array of strings"
-    )
 }

@@ -152,4 +152,20 @@ final class NotebookSchemaTests: XCTestCase {
         default: XCTFail("Expected stream")
         }
     }
+
+    func testMissingSourceIsKeyNotFound() {
+        let json = """
+        {
+            "nbformat": 4, "nbformat_minor": 5, "metadata": {},
+            "cells": [{ "cell_type": "markdown", "metadata": {} }]
+        }
+        """.data(using: .utf8)!
+
+        XCTAssertThrowsError(try JSONDecoder().decode(Notebook.self, from: json)) { error in
+            guard case DecodingError.keyNotFound(let key, _) = error else {
+                return XCTFail("expected keyNotFound, got \(error)")
+            }
+            XCTAssertEqual(key.stringValue, "source")
+        }
+    }
 }

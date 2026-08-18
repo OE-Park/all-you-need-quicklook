@@ -39,4 +39,10 @@ final class MarkdownRendererTests: XCTestCase {
         XCTAssertFalse(html.contains("</script><img"))
         XCTAssertFalse(html.contains("</SCRIPT><img"))
     }
+
+    func testDoesNotRewriteScriptureWord() {
+        let md = "read </scripture> later"
+        let html = renderer.render(content: md, config: config, fileExtension: "md")
+        XCTAssertTrue(html.contains("</scripture>"))
+    }
 }

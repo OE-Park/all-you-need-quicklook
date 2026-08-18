@@ -48,10 +48,19 @@ public final class MarkdownRenderer: Renderer {
     }
 
     private func escapeForJS(_ string: String) -> String {
-        string
+        let escaped = string
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "`", with: "\\`")
             .replacingOccurrences(of: "$", with: "\\$")
-            .replacingOccurrences(of: "</script", with: "<\\/script", options: .caseInsensitive)
+        let pattern = try! NSRegularExpression(
+            pattern: "</script(?=[\\s>/]|$)",
+            options: .caseInsensitive
+        )
+        let range = NSRange(escaped.startIndex..., in: escaped)
+        return pattern.stringByReplacingMatches(
+            in: escaped,
+            range: range,
+            withTemplate: "<\\\\/script"
+        )
     }
 }
