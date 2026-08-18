@@ -1,0 +1,79 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze-swift:
+    name: Analyze (swift)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Select Xcode 26.6
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.6"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+
+      - name: Generate project and compile
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project AllYouNeedQuickLook.xcodeproj \
+            -scheme AllYouNeedQuickLook \
+            -destination "platform=macOS" \
+            build
+          xcodebuild \
+            -project AllYouNeedQuickLook.xcodeproj \
+            -scheme Tests \
+            -destination "platform=macOS" \
+            build-for-testing
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:swift"
+
+  analyze-actions:
+    name: Analyze (actions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: actions
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:actions"

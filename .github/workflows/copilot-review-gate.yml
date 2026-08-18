@@ -1,0 +1,67 @@
+name: Copilot Review Gate
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: copilot-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  copilot-review-received:
+    name: Copilot review received
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Verify Copilot review for latest commit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          command -v gh >/dev/null || {
+            echo "GitHub CLI is unavailable."
+            exit 2
+          }
+          command -v jq >/dev/null || {
+            echo "jq is unavailable."
+            exit 2
+          }
+
+          for attempt in $(seq 1 30); do
+            if ! reviews="$(gh api --paginate --slurp \
+              "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews")"; then
+              echo "GitHub API review lookup failed."
+              exit 2
+            fi
+
+            if ! jq -e . <<<"${reviews}" >/dev/null; then
+              echo "GitHub API returned invalid review JSON."
+              exit 2
+            fi
+
+            if jq -e --arg sha "${HEAD_SHA}" '
+              flatten
+              | any(
+                  .user.login == "copilot-pull-request-reviewer[bot]"
+                  and .commit_id == $sha
+                )
+            ' <<<"${reviews}" >/dev/null; then
+              echo "GitHub Copilot review received for ${HEAD_SHA}."
+              exit 0
+            fi
+
+            echo "Waiting for GitHub Copilot review: ${attempt}/30"
+            sleep 20
+          done
+
+          echo "GitHub Copilot review for ${HEAD_SHA} is required."
+          exit 1

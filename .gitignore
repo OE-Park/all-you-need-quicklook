@@ -5,6 +5,9 @@ DerivedData/
 build/
 *.xcworkspace
 
+# Local agent handoff
+.remember/
+
 # macOS
 .DS_Store
 
