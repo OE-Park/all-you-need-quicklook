@@ -59,7 +59,10 @@ public enum ANSIConverter {
     private static func buildStyles(from codes: [Int]) -> String {
         var parts: [String] = []
         for code in codes {
-            if code == 0 { return "" }
+            if code == 0 {
+                parts.removeAll()
+                continue
+            }
             if code == 1 { parts.append("font-weight:bold") }
             if code == 3 { parts.append("font-style:italic") }
             if code == 4 { parts.append("text-decoration:underline") }

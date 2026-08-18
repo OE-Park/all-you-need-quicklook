@@ -52,7 +52,7 @@ public struct Cell: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         cellType = try container.decode(CellType.self, forKey: .cellType)
-        source = try container.decode([String].self, forKey: .source)
+        source = try decodeMultilineString(from: container, forKey: .source)
         outputs = try container.decodeIfPresent([CellOutput].self, forKey: .outputs)
         executionCount = try container.decodeIfPresent(Int?.self, forKey: .executionCount) ?? nil
     }
@@ -107,6 +107,21 @@ public enum CellOutput: Codable, Sendable {
 public struct StreamOutput: Codable, Sendable {
     public let name: String
     public let text: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case name, text
+    }
+
+    public init(name: String, text: [String]) {
+        self.name = name
+        self.text = text
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        text = try decodeMultilineString(from: container, forKey: .text)
+    }
 }
 
 public struct DisplayDataOutput: Codable, Sendable {
@@ -185,5 +200,16 @@ public enum MimeData: Codable, Sendable {
         case .string(let s): try container.encode(s)
         case .array(let a): try container.encode(a)
         }
+    }
+}
+
+private func decodeMultilineString<K: CodingKey>(
+    from container: KeyedDecodingContainer<K>,
+    forKey key: K
+) throws -> [String] {
+    do {
+        return try container.decode([String].self, forKey: key)
+    } catch DecodingError.typeMismatch {
+        return [try container.decode(String.self, forKey: key)]
     }
 }

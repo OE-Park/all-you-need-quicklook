@@ -32,4 +32,17 @@ final class MarkdownRendererTests: XCTestCase {
         let html = renderer.render(content: md, config: config, fileExtension: "md")
         XCTAssertTrue(html.contains("\\\\"))
     }
+
+    func testDoesNotCloseScriptElement() {
+        let md = "</script><img src=x>"
+        let html = renderer.render(content: md, config: config, fileExtension: "md")
+        XCTAssertFalse(html.contains("</script><img"))
+        XCTAssertFalse(html.contains("</SCRIPT><img"))
+    }
+
+    func testDoesNotRewriteScriptureWord() {
+        let md = "read </scripture> later"
+        let html = renderer.render(content: md, config: config, fileExtension: "md")
+        XCTAssertTrue(html.contains("</scripture>"))
+    }
 }

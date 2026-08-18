@@ -88,4 +88,84 @@ final class NotebookSchemaTests: XCTestCase {
         default: XCTFail("Expected error")
         }
     }
+
+    func testDecodeSourceAsSingleString() throws {
+        let json = """
+        {
+            "nbformat": 4, "nbformat_minor": 5, "metadata": {},
+            "cells": [{
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": "# Title\\nSome text"
+            }]
+        }
+        """.data(using: .utf8)!
+
+        let notebook = try JSONDecoder().decode(Notebook.self, from: json)
+        XCTAssertEqual(notebook.cells[0].joinedSource, "# Title\nSome text")
+    }
+
+    func testDecodeStreamTextAsSingleString() throws {
+        let json = """
+        {
+            "nbformat": 4, "nbformat_minor": 5, "metadata": {},
+            "cells": [{
+                "cell_type": "code",
+                "metadata": {},
+                "source": ["print('hi')"],
+                "execution_count": 1,
+                "outputs": [
+                    { "output_type": "stream", "name": "stdout", "text": "hello\\n" }
+                ]
+            }]
+        }
+        """.data(using: .utf8)!
+
+        let notebook = try JSONDecoder().decode(Notebook.self, from: json)
+        XCTAssertEqual(notebook.cells[0].joinedSource, "print('hi')")
+        switch notebook.cells[0].outputs![0] {
+        case .stream(let s): XCTAssertEqual(s.text.joined(), "hello\n")
+        default: XCTFail("Expected stream")
+        }
+    }
+
+    func testDecodeStringSourceAndStreamTextTogether() throws {
+        let json = """
+        {
+            "nbformat": 4, "nbformat_minor": 5, "metadata": {},
+            "cells": [{
+                "cell_type": "code",
+                "metadata": {},
+                "source": "print('hi')",
+                "execution_count": 1,
+                "outputs": [
+                    { "output_type": "stream", "name": "stdout", "text": "hello\\n" }
+                ]
+            }]
+        }
+        """.data(using: .utf8)!
+
+        let notebook = try JSONDecoder().decode(Notebook.self, from: json)
+        XCTAssertEqual(notebook.cells[0].joinedSource, "print('hi')")
+        switch notebook.cells[0].outputs![0] {
+        case .stream(let s): XCTAssertEqual(s.text.joined(), "hello\n")
+        default: XCTFail("Expected stream")
+        }
+    }
+
+    func testMissingSourceIsKeyNotFound() {
+        let json = """
+        {
+            "nbformat": 4, "nbformat_minor": 5, "metadata": {},
+            "cells": [{ "cell_type": "markdown", "metadata": {} }]
+        }
+        """.data(using: .utf8)!
+
+        XCTAssertThrowsError(try JSONDecoder().decode(Notebook.self, from: json)) { error in
+            guard case DecodingError.keyNotFound(let key, _) = error else {
+                return XCTFail("expected keyNotFound, got \(error)")
+            }
+            XCTAssertEqual(key.stringValue, "source")
+        }
+    }
 }
