@@ -18,7 +18,7 @@ final class NotebookRendererTests: XCTestCase {
         {"cell_type":"markdown","metadata":{},"source":["# Title"]}
         """)
         let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
-        XCTAssertTrue(html.contains("markdown-cell"))
+        XCTAssertTrue(html.contains("markdown-cell-raw"))
         XCTAssertTrue(html.contains("# Title"))
     }
 
