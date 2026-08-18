@@ -44,10 +44,6 @@
           {
             "context": "Dependency review",
             "integration_id": 15368
-          },
-          {
-            "context": "Copilot review received",
-            "integration_id": 15368
           }
         ]
       }
