@@ -13,7 +13,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 ## Status
 
-Plan tasks 1–9 are on `main`. Next is Task 10 `PreviewWebView`.
+Plan tasks 1–10 are on `main`. Next is Task 11 `Download JS Libraries`.
 
 ## Hard rules
 

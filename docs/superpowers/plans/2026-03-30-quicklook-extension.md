@@ -2015,7 +2015,7 @@ git commit -m "feat: add NotebookRenderer with full cell type and output support
 
 This component is used by both the QuickLook extension and the host app's Preview tab.
 
-- [ ] **Step 1: Implement PreviewWebView**
+- [x] **Step 1: Implement PreviewWebView**
 
 ```swift
 // Shared/WebView/PreviewWebView.swift
@@ -2089,7 +2089,7 @@ extension PreviewWebView: WKNavigationDelegate {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2097,7 +2097,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add Shared/WebView/PreviewWebView.swift
