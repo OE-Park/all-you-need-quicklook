@@ -37,4 +37,12 @@ final class ANSIConverterTests: XCTestCase {
         XCTAssertFalse(result.contains("<script>"))
         XCTAssertTrue(result.contains("&lt;script&gt;"))
     }
+
+    func testResetThenColorKeepsColor() {
+        let input = "\u{1B}[0;31mValueError\u{1B}[0m"
+        let result = ANSIConverter.toHTML(input)
+        XCTAssertTrue(result.contains("color:"))
+        XCTAssertTrue(result.contains("ValueError"))
+        XCTAssertFalse(result.contains("\u{1B}"))
+    }
 }

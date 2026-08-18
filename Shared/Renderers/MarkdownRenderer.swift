@@ -52,5 +52,6 @@ public final class MarkdownRenderer: Renderer {
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "`", with: "\\`")
             .replacingOccurrences(of: "$", with: "\\$")
+            .replacingOccurrences(of: "</script", with: "<\\/script", options: .caseInsensitive)
     }
 }
