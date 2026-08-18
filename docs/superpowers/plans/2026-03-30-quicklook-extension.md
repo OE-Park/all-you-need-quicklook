@@ -1714,7 +1714,7 @@ git commit -m "feat: add Notebook Codable models for ipynb JSON parsing"
 - Create: `Shared/Renderers/NotebookRenderer.swift`
 - Create: `Tests/NotebookRendererTests.swift`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```swift
 // Tests/NotebookRendererTests.swift
@@ -1801,7 +1801,7 @@ final class NotebookRendererTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination "platform=macOS"
@@ -1809,7 +1809,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Expected: FAIL — `NotebookRenderer` not found
 
-- [ ] **Step 3: Implement NotebookRenderer**
+- [x] **Step 3: Implement NotebookRenderer**
 
 The NotebookRenderer parses ipynb JSON in Swift and generates static HTML for each cell. Markdown cells are placed as escaped text in `.markdown-cell-raw` divs — the browser-side JS then uses marked.js to render them. Code cell sources are HTML-escaped on the Swift side and placed in `<code>` elements for highlight.js. Output HTML from `text/html` mime type is inserted as-is (this is the same behavior as Jupyter itself — notebook HTML outputs are trusted content from the notebook author). Error tracebacks go through ANSIConverter which HTML-escapes before processing ANSI codes.
 
@@ -1991,7 +1991,7 @@ public final class NotebookRenderer: Renderer {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination "platform=macOS"
@@ -1999,7 +1999,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Expected: All 8 tests PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Shared/Renderers/NotebookRenderer.swift Tests/NotebookRendererTests.swift
