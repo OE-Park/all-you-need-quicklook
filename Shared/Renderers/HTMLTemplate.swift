@@ -3,17 +3,22 @@ import Foundation
 
 public enum HTMLTemplate {
 
+    public static let scriptNoncePlaceholder = "__AYNQL_SCRIPT_NONCE__"
+
     public static func wrap(
         body: String,
         rendererType: String,
         customCSS: String = ""
     ) -> String {
-        """
+        let scriptNonce = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let trustedBody = body.replacingOccurrences(of: scriptNoncePlaceholder, with: scriptNonce)
+        return """
         <!DOCTYPE html>
         <html lang="en">
         <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'nonce-\(scriptNonce)' quicklook-resource:; style-src 'self' 'unsafe-inline' quicklook-resource:; img-src data: quicklook-image:; font-src data: quicklook-resource:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
         <style>
         :root {
             --bg: #ffffff;
@@ -107,7 +112,45 @@ public enum HTMLTemplate {
         <script src="katex.min.js"></script>
         </head>
         <body class="\(rendererType)">
-        \(body)
+        \(trustedBody)
+        <script nonce="\(scriptNonce)">
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('click', function(event) {
+                var anchor = event.target.closest('a[href^="#"]');
+                if (!anchor) {
+                    return;
+                }
+                event.preventDefault();
+                var fragment = anchor.getAttribute('href');
+                var target = document.getElementById(decodeURIComponent(fragment.slice(1)));
+                history.replaceState(null, '', document.URL.split('#')[0] + fragment);
+                if (target) {
+                    target.scrollIntoView();
+                }
+            });
+
+            document.querySelectorAll('img[src]').forEach(function(image) {
+                var source;
+                try {
+                    source = new URL(image.getAttribute('src'), document.baseURI);
+                } catch (error) {
+                    return;
+                }
+                if (source.protocol !== 'http:' && source.protocol !== 'https:') {
+                    return;
+                }
+
+                image.addEventListener('error', function() {
+                    var placeholder = document.createElement('div');
+                    placeholder.className = 'placeholder-image';
+                    placeholder.textContent = 'Image unavailable';
+                    image.replaceWith(placeholder);
+                }, { once: true });
+                image.src = 'quicklook-image://fetch/?url=' + encodeURIComponent(source.href);
+            });
+            document.documentElement.dataset.quicklookReady = 'true';
+        });
+        </script>
         </body>
         </html>
         """

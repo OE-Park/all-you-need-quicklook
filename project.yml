@@ -10,10 +10,8 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     MACOSX_DEPLOYMENT_TARGET: "15.0"
-    CODE_SIGN_IDENTITY: "-"
-    CODE_SIGNING_REQUIRED: "NO"
-    CODE_SIGNING_ALLOWED: "NO"
-    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 2YU6ZP854S
 
 targets:
   AllYouNeedQuickLook:
@@ -56,6 +54,13 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.quicklook.preview
           NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).PreviewViewController"
+          NSExtensionAttributes:
+            QLIsDataBasedPreview: false
+            QLSupportedContentTypes:
+              - public.plain-text
+              - net.daringfireball.markdown
+              - org.jupyter.notebook
+            QLSupportsSearchableItems: false
         UTExportedTypeDeclarations:
           - UTTypeIdentifier: org.jupyter.notebook
             UTTypeDescription: Jupyter Notebook
@@ -64,10 +69,6 @@ targets:
             UTTypeTagSpecification:
               public.filename-extension:
                 - ipynb
-        QLSupportedContentTypes:
-          - public.plain-text
-          - net.daringfireball.markdown
-          - org.jupyter.notebook
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     entitlements:
@@ -97,6 +98,9 @@ targets:
       - Tests
     dependencies:
       - target: Shared
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
 
 schemes:
   AllYouNeedQuickLook:

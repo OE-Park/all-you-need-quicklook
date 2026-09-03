@@ -11,7 +11,7 @@ public final class PlainTextRenderer: Renderer {
 
         let customCSS = """
         pre.plaintext-content {
-            font-family: "\(resolved.fontFamily)", monospace;
+            font-family: "\(escapeCSSString(resolved.fontFamily))", monospace;
             font-size: \(resolved.fontSize)px;
             line-height: \(resolved.lineHeight);
         }
@@ -43,13 +43,15 @@ public final class PlainTextRenderer: Renderer {
         content: String, language: String,
         resolved: ResolvedFileTypeConfig, customCSS: String
     ) -> String {
-        let escaped = escapeForJS(content)
+        let contentString = javaScriptString(content)
+        let languageString = javaScriptString(language)
+        let languageClass = escapeHTML(language)
         let body = """
-        <pre class="plaintext-content"><code id="code-content" class="language-\(language)"></code></pre>
-        <script>
+        <pre class="plaintext-content"><code id="code-content" class="language-\(languageClass)"></code></pre>
+        <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
         document.addEventListener('DOMContentLoaded', function() {
-            var raw = `\(escaped)`;
-            var result = hljs.highlight(raw, { language: '\(language)' });
+            var raw = \(contentString);
+            var result = hljs.highlight(raw, { language: \(languageString) });
             document.getElementById('code-content').innerHTML = result.value;
         });
         </script>
@@ -85,10 +87,17 @@ public final class PlainTextRenderer: Renderer {
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
-    private func escapeForJS(_ string: String) -> String {
+    private func javaScriptString(_ string: String) -> String {
+        let data = try! JSONEncoder().encode(string)
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    private func escapeCSSString(_ string: String) -> String {
         string
             .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "`", with: "\\`")
-            .replacingOccurrences(of: "$", with: "\\$")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "<", with: "\\3C ")
+            .replacingOccurrences(of: "\n", with: "\\A ")
+            .replacingOccurrences(of: "\r", with: "\\D ")
     }
 }

@@ -69,4 +69,35 @@ final class PlainTextRendererTests: XCTestCase {
         XCTAssertFalse(html.contains("<script>alert"))
         XCTAssertTrue(html.contains("&lt;script&gt;"))
     }
+
+    func testSyntaxLanguageCannotBreakOutOfJavaScriptString() {
+        var config = AppConfig()
+        config.fileTypes = [
+            "txt": FileTypeConfig(
+                syntaxHighlight: true,
+                syntaxLanguage: "swift');globalThis.pwned=true;//"
+            )
+        ]
+
+        let html = renderer.render(content: "let x = 1", config: config, fileExtension: "txt")
+
+        XCTAssertFalse(html.contains("language: 'swift');globalThis.pwned=true;//'"))
+        XCTAssertTrue(html.contains("language: \"swift');globalThis.pwned=true;\\/\\/\""))
+    }
+
+    func testHighlightedContentCannotCloseScriptElement() {
+        var config = AppConfig()
+        config.fileTypes = [
+            "txt": FileTypeConfig(syntaxHighlight: true, syntaxLanguage: "plaintext")
+        ]
+
+        let html = renderer.render(
+            content: "</script><script nonce=\"known-nonce\">globalThis.pwned=true</script>",
+            config: config,
+            fileExtension: "txt"
+        )
+
+        XCTAssertFalse(html.contains("</script><script nonce="))
+        XCTAssertTrue(html.contains("<\\/script>"))
+    }
 }

@@ -46,7 +46,8 @@ final class NotebookRendererTests: XCTestCase {
         {"cell_type":"code","metadata":{},"source":[""],"execution_count":2,"outputs":[{"output_type":"execute_result","execution_count":2,"metadata":{},"data":{"text/html":["<b>bold</b>"],"text/plain":["bold"]}}]}
         """)
         let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
-        XCTAssertTrue(html.contains("<b>bold</b>"))
+        XCTAssertFalse(html.contains("<b>bold</b>"))
+        XCTAssertTrue(html.contains("&lt;b&gt;bold&lt;/b&gt;"))
     }
 
     func testErrorOutput() {
@@ -120,5 +121,15 @@ final class NotebookRendererTests: XCTestCase {
         let html = renderer.render(content: "not json at all", config: config, fileExtension: "ipynb")
         XCTAssertTrue(html.contains("notebook"))
         XCTAssertTrue(html.contains("Error")) // shows error message
+    }
+
+    func testMarkdownCodeBlocksUseCurrentHighlightJSAPI() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"markdown","metadata":{},"source":["```swift\\nlet x = 1\\n```"]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+
+        XCTAssertTrue(html.contains(".markdown-cell pre code"))
+        XCTAssertFalse(html.contains("highlight: function"))
     }
 }

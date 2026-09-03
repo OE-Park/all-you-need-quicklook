@@ -10,7 +10,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-30-quicklook-extension-design.md`
 
-**Security Note:** All renderers that produce HTML from user content must HTML-escape text before injection. In the WKWebView, a Content Security Policy (CSP) meta tag restricts script sources to inline-only (no external JS loading). The `innerHTML` usage in the browser-side JS is intentional — it processes content that has been either (a) HTML-escaped on the Swift side before template injection, or (b) produced by trusted bundled libraries (marked.js, KaTeX). External navigation and external script/CSS loading are blocked by CSP and WKNavigationDelegate.
+**Security Note:** All renderers that produce HTML from user content must HTML-escape text before injection. Inline renderer scripts require a per-document CSP nonce; bundled JS/CSS/fonts load only through `quicklook-resource:`, and external images load only through the timeout-controlled `quicklook-image:` handler. Notebook `text/html` output is displayed as escaped source. External navigation and external script/CSS loading are blocked by CSP and `WKNavigationDelegate`.
+
+> **Stabilization override (2026-09-03):** Completed Task 9–10 code snippets below record the original TDD sequence and are not the current security implementation. For rendering, CSP, navigation, external-image loading, signing, and QuickLook metadata, follow the design spec and current source/tests.
 
 ---
 
@@ -35,7 +37,9 @@
 | File | Responsibility |
 |------|---------------|
 | `QuickLookExtension/PreviewViewController.swift` | QLPreviewingController — routes file to renderer, loads into WKWebView |
-| `QuickLookExtension/WebView/PreviewWebView.swift` | WKWebView subclass with security policies, 3s image timeout, navigation blocking |
+| `Shared/WebView/PreviewWebView.swift` | WKWebView subclass with security policies, image timeout, navigation blocking |
+| `Shared/WebView/BundledResourceSchemeHandler.swift` | Restricts bundled JS/CSS/font access to the Shared resource directory |
+| `Shared/WebView/ExternalImageSchemeHandler.swift` | Loads HTTP(S) images with timeout, MIME, status, and size validation |
 | `QuickLookExtension/Info.plist` | QLSupportedContentTypes, UTExportedTypeDeclarations |
 | `QuickLookExtension/QuickLookExtension.entitlements` | Sandbox + network.client + app-groups |
 
@@ -1811,7 +1815,7 @@ Expected: FAIL — `NotebookRenderer` not found
 
 - [x] **Step 3: Implement NotebookRenderer**
 
-The NotebookRenderer parses ipynb JSON in Swift and generates static HTML for each cell. Markdown cells are placed as escaped text in `.markdown-cell-raw` divs — the browser-side JS then uses marked.js to render them. Code cell sources are HTML-escaped on the Swift side and placed in `<code>` elements for highlight.js. Output HTML from `text/html` mime type is inserted as-is (this is the same behavior as Jupyter itself — notebook HTML outputs are trusted content from the notebook author). Error tracebacks go through ANSIConverter which HTML-escapes before processing ANSI codes.
+The NotebookRenderer parses ipynb JSON in Swift and generates static HTML for each cell. Markdown cells are placed as escaped text in `.markdown-cell-raw` divs — the browser-side JS then uses marked.js to render them. Code cell sources are HTML-escaped on the Swift side and placed in `<code>` elements for highlight.js. The stabilization override displays `text/html` mime output as escaped source. Error tracebacks go through ANSIConverter, which HTML-escapes before processing ANSI codes.
 
 ```swift
 // Shared/Renderers/NotebookRenderer.swift

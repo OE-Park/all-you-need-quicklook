@@ -25,26 +25,26 @@ public final class NotebookRenderer: Renderer {
 
         let body = """
         \(cellsHTML)
-        <script>
+        <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
         document.addEventListener('DOMContentLoaded', function() {
+            var escapeHTML = function(value) {
+                return value.replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            };
+            var renderer = new marked.Renderer();
+            renderer.html = function(token) {
+                return escapeHTML(token.text);
+            };
+            marked.setOptions({ renderer: renderer, gfm: true });
+
             document.querySelectorAll('.markdown-cell-raw').forEach(function(el) {
-                var raw = el.innerHTML;
-                marked.setOptions({
-                    highlight: function(code, lang) {
-                        if (lang && hljs.getLanguage(lang)) {
-                            return hljs.highlight(code, { language: lang }).value;
-                        }
-                        return hljs.highlightAuto(code).value;
-                    },
-                    gfm: true
-                });
+                var raw = el.textContent;
                 el.innerHTML = marked.parse(raw);
                 el.classList.remove('markdown-cell-raw');
                 el.classList.add('markdown-cell');
-            });
-
-            document.querySelectorAll('.code-source code').forEach(function(el) {
-                hljs.highlightElement(el);
             });
 
             document.querySelectorAll('.katex-latex').forEach(function(el) {
@@ -67,6 +67,10 @@ public final class NotebookRenderer: Renderer {
                     catch(e) { return m; }
                 });
                 el.innerHTML = html;
+            });
+
+            document.querySelectorAll('.code-source code, .markdown-cell pre code').forEach(function(el) {
+                hljs.highlightElement(el);
             });
         });
         </script>
@@ -146,10 +150,8 @@ public final class NotebookRenderer: Renderer {
         if let jpeg = data["image/jpeg"] {
             return "<div class=\"cell-output\"><img src=\"data:image/jpeg;base64,\(escapeHTML(jpeg.text))\"></div>"
         }
-        // text/html output from notebooks is trusted content from the notebook
-        // author (same trust model as Jupyter itself). CSP blocks external scripts.
         if let htmlData = data["text/html"] {
-            return "<div class=\"cell-output\">\(htmlData.text)</div>"
+            return "<div class=\"cell-output\"><pre>\(escapeHTML(htmlData.text))</pre></div>"
         }
         if let latex = data["text/latex"] {
             return "<div class=\"cell-output\"><div class=\"katex-latex\">\(escapeHTML(latex.text))</div></div>"

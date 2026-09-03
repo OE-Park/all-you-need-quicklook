@@ -80,7 +80,7 @@ AllYouNeedQuickLook/
   - **Code cells — source:** Wrapped in `<pre><code>` with highlight.js syntax highlighting
   - **Code cells — outputs:**
     - `text/plain` → `<pre>` block
-    - `text/html` → inserted as-is
+    - `text/html` → displayed as escaped source (not activated as notebook-authored DOM)
     - `image/png`, `image/jpeg` → base64 `<img>` tag
     - `text/latex` → KaTeX rendering
     - `error` → traceback with ANSI color codes converted to CSS
@@ -91,10 +91,11 @@ AllYouNeedQuickLook/
 
 External images (`<img src="https://...">`) are supported with a 3-second timeout:
 
-- `WKNavigationDelegate` intercepts external resource requests
-- `URLSession` with `timeoutIntervalForResource = 3` handles the download
+- Renderer JavaScript rewrites HTTP(S) image URLs to the private `quicklook-image:` scheme
+- A `WKURLSchemeHandler` uses an ephemeral `URLSession` with `timeoutIntervalForRequest` and `timeoutIntervalForResource` set from configuration
 - Both HTTP and HTTPS are allowed (`NSAppTransportSecurity` exception configured)
 - On timeout: replaced with a placeholder image
+- Non-2xx, non-image, oversized (over 25 MiB), and failed responses use the same placeholder path
 - Non-image external resources (CSS, JS, iframe) are blocked
 
 ---
@@ -188,18 +189,26 @@ SwiftUI app with three tabs:
 ### WKWebView Security
 
 - External JavaScript execution blocked — only bundled JS allowed
+- Inline renderer JavaScript requires a per-document CSP nonce; `script-src 'unsafe-inline'` is not used
+- Bundled JS/CSS/fonts are served only through the private `quicklook-resource:` scheme
 - External link navigation blocked (no page navigation from QuickLook)
 - Only external images allowed (with 3s timeout); all other external resources (CSS, JS, iframe) blocked
 
 ### Info.plist — QLSupportedContentTypes
 
 ```xml
-<key>QLSupportedContentTypes</key>
-<array>
-    <string>public.plain-text</string>
-    <string>net.daringfireball.markdown</string>
-    <string>org.jupyter.notebook</string>
-</array>
+<key>NSExtension</key>
+<dict>
+    <key>NSExtensionAttributes</key>
+    <dict>
+        <key>QLSupportedContentTypes</key>
+        <array>
+            <string>public.plain-text</string>
+            <string>net.daringfireball.markdown</string>
+            <string>org.jupyter.notebook</string>
+        </array>
+    </dict>
+</dict>
 ```
 
 - `public.plain-text` — covers txt, log, conf, yaml, plist, and other plain text formats

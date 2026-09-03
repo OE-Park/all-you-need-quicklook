@@ -6,19 +6,25 @@ public final class MarkdownRenderer: Renderer {
     public init() {}
 
     public func render(content: String, config: AppConfig, fileExtension: String) -> String {
-        let escapedContent = escapeForJS(content)
+        let contentString = javaScriptString(content)
         let body = """
         <div id="markdown-content" class="markdown"></div>
-        <script>
+        <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
         document.addEventListener('DOMContentLoaded', function() {
-            var raw = `\(escapedContent)`;
+            var raw = \(contentString);
+            var escapeHTML = function(value) {
+                return value.replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            };
+            var renderer = new marked.Renderer();
+            renderer.html = function(token) {
+                return escapeHTML(token.text);
+            };
             marked.setOptions({
-                highlight: function(code, lang) {
-                    if (lang && hljs.getLanguage(lang)) {
-                        return hljs.highlight(code, { language: lang }).value;
-                    }
-                    return hljs.highlightAuto(code).value;
-                },
+                renderer: renderer,
                 gfm: true,
                 breaks: false
             });
@@ -26,6 +32,9 @@ public final class MarkdownRenderer: Renderer {
             document.getElementById('markdown-content').innerHTML = rendered;
 
             renderMathInElement(document.getElementById('markdown-content'));
+            document.querySelectorAll('#markdown-content pre code').forEach(function(el) {
+                hljs.highlightElement(el);
+            });
         });
 
         function renderMathInElement(element) {
@@ -47,20 +56,8 @@ public final class MarkdownRenderer: Renderer {
         return HTMLTemplate.wrap(body: body, rendererType: "markdown")
     }
 
-    private func escapeForJS(_ string: String) -> String {
-        let escaped = string
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "`", with: "\\`")
-            .replacingOccurrences(of: "$", with: "\\$")
-        let pattern = try! NSRegularExpression(
-            pattern: "</script(?=[\\s>/]|$)",
-            options: .caseInsensitive
-        )
-        let range = NSRange(escaped.startIndex..., in: escaped)
-        return pattern.stringByReplacingMatches(
-            in: escaped,
-            range: range,
-            withTemplate: "<\\\\/script"
-        )
+    private func javaScriptString(_ string: String) -> String {
+        let data = try! JSONEncoder().encode(string)
+        return String(decoding: data, as: UTF8.self)
     }
 }
