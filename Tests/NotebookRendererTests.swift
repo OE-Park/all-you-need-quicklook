@@ -108,6 +108,16 @@ final class NotebookRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
     }
 
+    func testStreamOutputEscapesApostrophe() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":1,"outputs":[{"output_type":"stream","name":"stdout","text":["it's unsafe"]}]}
+        """)
+
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+
+        XCTAssertTrue(html.contains("it&#39;s unsafe"))
+    }
+
     func testBase64ImageEscapesQuotes() {
         let json = makeNotebookJSON(cells: """
         {"cell_type":"code","metadata":{},"source":[""],"execution_count":null,"outputs":[{"output_type":"display_data","metadata":{},"data":{"image/png":"bad\\"><script>alert(1)</script>","text/plain":[""]}}]}

@@ -26,7 +26,7 @@ public final class PlainTextRenderer: Renderer {
 
         let processedLines = lines.enumerated().map { index, line in
             let escapedLine = applyLogPatterns(
-                escapeHTML(line), patterns: resolved.logLevelPatterns
+                HTMLEscaper.escape(line), patterns: resolved.logLevelPatterns
             )
             if resolved.showLineNumbers {
                 let num = String(index + 1)
@@ -45,7 +45,7 @@ public final class PlainTextRenderer: Renderer {
     ) -> String {
         let contentString = javaScriptString(content)
         let languageString = javaScriptString(language)
-        let languageClass = escapeHTML(language)
+        let languageClass = HTMLEscaper.escape(language)
         let body = """
         <pre class="plaintext-content"><code id="code-content" class="language-\(languageClass)"></code></pre>
         <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
@@ -79,14 +79,6 @@ public final class PlainTextRenderer: Renderer {
             }
         }
         return result
-    }
-
-    private func escapeHTML(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
     private func javaScriptString(_ string: String) -> String {

@@ -70,6 +70,12 @@ final class PlainTextRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("&lt;script&gt;"))
     }
 
+    func testApostropheEscaped() {
+        let html = renderer.render(content: "it's unsafe", config: AppConfig(), fileExtension: "txt")
+
+        XCTAssertTrue(html.contains("it&#39;s unsafe"))
+    }
+
     func testSyntaxLanguageCannotBreakOutOfJavaScriptString() {
         var config = AppConfig()
         config.fileTypes = [

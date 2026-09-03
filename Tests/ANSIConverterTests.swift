@@ -38,6 +38,12 @@ final class ANSIConverterTests: XCTestCase {
         XCTAssertTrue(result.contains("&lt;script&gt;"))
     }
 
+    func testApostropheEscaped() {
+        let result = ANSIConverter.toHTML("it's unsafe")
+
+        XCTAssertEqual(result, "it&#39;s unsafe")
+    }
+
     func testResetThenColorKeepsColor() {
         let input = "\u{1B}[0;31mValueError\u{1B}[0m"
         let result = ANSIConverter.toHTML(input)

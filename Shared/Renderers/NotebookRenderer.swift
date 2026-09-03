@@ -80,7 +80,7 @@ public final class NotebookRenderer: Renderer {
     }
 
     private func renderMarkdownCell(_ cell: Cell) -> String {
-        let source = escapeHTML(cell.joinedSource)
+        let source = HTMLEscaper.escape(cell.joinedSource)
         return """
         <div class="notebook-cell">
             <div class="markdown-cell-raw">\(source)</div>
@@ -95,7 +95,7 @@ public final class NotebookRenderer: Renderer {
         } else {
             execLabel = "In [ ]"
         }
-        let source = escapeHTML(cell.joinedSource)
+        let source = HTMLEscaper.escape(cell.joinedSource)
 
         var html = """
         <div class="notebook-cell">
@@ -114,7 +114,7 @@ public final class NotebookRenderer: Renderer {
     }
 
     private func renderRawCell(_ cell: Cell) -> String {
-        let source = escapeHTML(cell.joinedSource)
+        let source = HTMLEscaper.escape(cell.joinedSource)
         return """
         <div class="notebook-cell">
             <div class="cell-output"><pre>\(source)</pre></div>
@@ -125,7 +125,7 @@ public final class NotebookRenderer: Renderer {
     private func renderOutput(_ output: CellOutput) -> String {
         switch output {
         case .stream(let stream):
-            let text = escapeHTML(stream.text.joined())
+            let text = HTMLEscaper.escape(stream.text.joined())
             return "<div class=\"cell-output\"><pre>\(text)</pre></div>"
 
         case .displayData(let display):
@@ -145,33 +145,25 @@ public final class NotebookRenderer: Renderer {
     private func renderMimeData(_ data: [String: MimeData]) -> String {
         // Priority order: image > html > latex > text
         if let png = data["image/png"] {
-            return "<div class=\"cell-output\"><img src=\"data:image/png;base64,\(escapeHTML(png.text))\"></div>"
+            return "<div class=\"cell-output\"><img src=\"data:image/png;base64,\(HTMLEscaper.escape(png.text))\"></div>"
         }
         if let jpeg = data["image/jpeg"] {
-            return "<div class=\"cell-output\"><img src=\"data:image/jpeg;base64,\(escapeHTML(jpeg.text))\"></div>"
+            return "<div class=\"cell-output\"><img src=\"data:image/jpeg;base64,\(HTMLEscaper.escape(jpeg.text))\"></div>"
         }
         if let htmlData = data["text/html"] {
-            return "<div class=\"cell-output\"><pre>\(escapeHTML(htmlData.text))</pre></div>"
+            return "<div class=\"cell-output\"><pre>\(HTMLEscaper.escape(htmlData.text))</pre></div>"
         }
         if let latex = data["text/latex"] {
-            return "<div class=\"cell-output\"><div class=\"katex-latex\">\(escapeHTML(latex.text))</div></div>"
+            return "<div class=\"cell-output\"><div class=\"katex-latex\">\(HTMLEscaper.escape(latex.text))</div></div>"
         }
         if let plain = data["text/plain"] {
-            return "<div class=\"cell-output\"><pre>\(escapeHTML(plain.text))</pre></div>"
+            return "<div class=\"cell-output\"><pre>\(HTMLEscaper.escape(plain.text))</pre></div>"
         }
         return ""
     }
 
     private func renderError(_ message: String) -> String {
-        let body = "<div class=\"cell-output cell-error\"><pre>\(escapeHTML(message))</pre></div>"
+        let body = "<div class=\"cell-output cell-error\"><pre>\(HTMLEscaper.escape(message))</pre></div>"
         return HTMLTemplate.wrap(body: body, rendererType: "notebook")
-    }
-
-    private func escapeHTML(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 }
