@@ -122,7 +122,13 @@ public enum HTMLTemplate {
                 }
                 event.preventDefault();
                 var fragment = anchor.getAttribute('href');
-                var target = document.getElementById(decodeURIComponent(fragment.slice(1)));
+                var targetID;
+                try {
+                    targetID = decodeURIComponent(fragment.slice(1));
+                } catch (error) {
+                    return;
+                }
+                var target = document.getElementById(targetID);
                 history.replaceState(null, '', document.URL.split('#')[0] + fragment);
                 if (target) {
                     target.scrollIntoView();

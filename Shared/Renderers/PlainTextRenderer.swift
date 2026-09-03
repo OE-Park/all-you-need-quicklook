@@ -51,7 +51,9 @@ public final class PlainTextRenderer: Renderer {
         <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
         document.addEventListener('DOMContentLoaded', function() {
             var raw = \(contentString);
-            var result = hljs.highlight(raw, { language: \(languageString) });
+            var result = hljs.getLanguage(\(languageString))
+                ? hljs.highlight(raw, { language: \(languageString) })
+                : hljs.highlightAuto(raw);
             document.getElementById('code-content').innerHTML = result.value;
         });
         </script>

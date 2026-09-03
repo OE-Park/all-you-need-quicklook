@@ -94,6 +94,53 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         XCTAssertEqual(stayedLocal, true)
     }
 
+    func testMalformedAnchorDoesNotRaiseJavaScriptError() async throws {
+        let html = HTMLTemplate.wrap(
+            body: """
+            <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
+            globalThis.anchorErrors = 0;
+            window.addEventListener('error', function() { globalThis.anchorErrors += 1; });
+            </script>
+            <a id="malformed" href="#%E0%A4%A">malformed</a>
+            """,
+            rendererType: "markdown"
+        )
+        let webView = PreviewWebView()
+        webView.loadHTML(html, resourcesURL: try resourcesURL())
+        try await waitUntilTrue(
+            in: webView,
+            expression: "document.documentElement.dataset.quicklookReady === 'true'"
+        )
+
+        _ = try? await webView.evaluateJavaScript("document.getElementById('malformed').click()")
+        try await Task.sleep(for: .milliseconds(100))
+        let errorCount = try await webView.evaluateJavaScript("globalThis.anchorErrors") as? Int
+
+        XCTAssertEqual(errorCount, 0)
+    }
+
+    func testUnknownSyntaxLanguageStillRendersPlainTextContent() async throws {
+        var config = AppConfig()
+        config.fileTypes = [
+            "txt": FileTypeConfig(
+                syntaxHighlight: true,
+                syntaxLanguage: "not-a-highlight-language"
+            )
+        ]
+        let html = PlainTextRenderer().render(
+            content: "visible fallback content",
+            config: config,
+            fileExtension: "txt"
+        )
+        let webView = PreviewWebView()
+        webView.loadHTML(html, resourcesURL: try resourcesURL())
+
+        try await waitUntilTrue(
+            in: webView,
+            expression: "document.getElementById('code-content')?.textContent === 'visible fallback content'"
+        )
+    }
+
     private func resourcesURL() throws -> URL {
         try XCTUnwrap(Bundle(for: ConfigLoader.self).resourceURL)
     }
