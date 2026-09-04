@@ -29,19 +29,26 @@ public final class PreviewWebView: WKWebView {
     ///
     /// At `.atDocumentStart` for a `loadHTMLString` load, `document.head` is
     /// still `null` — only `document.documentElement` exists. Reaching straight
-    /// for `document.head` throws, which silently leaves the document with *no*
-    /// policy at all, so the head is created here when the parser has not
-    /// produced one yet.
+    /// for `document.head` throws, and a throw here leaves the document with
+    /// *no* policy at all rather than a loud failure, so every node this walks
+    /// is created when it is missing instead of being dereferenced on faith.
+    /// `PreviewWebViewLiveTests` asserts the meta really lands in a loaded
+    /// document; this comment is not the guarantee, that test is.
     nonisolated static var cspUserScriptSource: String {
         """
         (function() {
             var meta = document.createElement('meta');
             meta.httpEquiv = 'Content-Security-Policy';
             meta.content = "\(contentSecurityPolicy)";
+            var root = document.documentElement;
+            if (!root) {
+                root = document.createElement('html');
+                document.appendChild(root);
+            }
             var head = document.head;
             if (!head) {
                 head = document.createElement('head');
-                document.documentElement.prepend(head);
+                root.prepend(head);
             }
             head.prepend(meta);
         })();

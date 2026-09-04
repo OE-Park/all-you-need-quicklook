@@ -57,12 +57,14 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     // MARK: - Still blocks third-party resources
 
-    func testPolicyBlocksThirdPartyScriptAndStyle() throws {
-        for source in try directive("script-src") + directive("style-src") {
-            XCTAssertFalse(source.hasPrefix("http"), "third-party origin allowed: \(source)")
-            XCTAssertNotEqual(source, "*")
-            XCTAssertNotEqual(source, "'unsafe-eval'")
-        }
+    /// Pinned as exact allow-lists rather than a deny-list of shapes: a
+    /// deny-list has to anticipate every form a third-party source can take
+    /// (`cdn.example.com`, `//evil.com`, `*.example.com`, `data:`,
+    /// `'strict-dynamic'`, …) and misses the bare-host form anyone is most
+    /// likely to actually write. Anything added here now fails the test.
+    func testPolicyAllowsExactlyTheInlineScriptAndStyleSources() throws {
+        XCTAssertEqual(try directive("script-src"), ["'unsafe-inline'"])
+        XCTAssertEqual(try directive("style-src"), ["'unsafe-inline'", "blob:"])
     }
 
     func testPolicyBlocksFramesAndEverythingElseByDefault() throws {
@@ -82,16 +84,11 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     // MARK: - Injection
 
-    /// `document.head` is nil at `.atDocumentStart` for a `loadHTMLString`
-    /// load. Dereferencing it throws and leaves the document with no policy at
-    /// all, so the script must create the head itself.
-    func testInjectionScriptDoesNotAssumeDocumentHeadExists() {
-        let source = PreviewWebView.cspUserScriptSource
-        XCTAssertTrue(source.contains("document.createElement('head')"),
-                      "injection must cope with a document that has no head yet")
-        XCTAssertTrue(source.contains(PreviewWebView.contentSecurityPolicy),
-                      "injection must carry the policy verbatim")
-    }
+    // Whether the policy is actually installed in a loaded document, and
+    // actually enforced once it is, is asserted against a live WKWebView in
+    // PreviewWebViewLiveTests. Asserting on the shape of the injection source
+    // here would pass for a script that builds a head and then forgets to put
+    // the meta in it, and fail for a correct refactor that used double quotes.
 
     /// The policy is interpolated into a JS double-quoted string literal.
     func testPolicyIsSafeToEmbedInAJavaScriptStringLiteral() {

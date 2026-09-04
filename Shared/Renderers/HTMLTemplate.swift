@@ -165,11 +165,25 @@ public enum HTMLTemplate {
             .replacingOccurrences(of: "</style", with: "<\\/style", options: [.caseInsensitive])
     }
 
-    /// JavaScript ready to drop inside a `<script>` element. Only `</script`
-    /// closes it (from the escaped and double-escaped script-data states too);
-    /// `<\/script` is the same sequence inside any JS string or regex literal.
+    /// JavaScript ready to drop inside a `<script>` element.
+    ///
+    /// Two sequences are neutralised, and both replacements are the same string
+    /// to a JS string, template or regular-expression literal:
+    ///
+    /// - `</script` ends the element from the script-data state. `\/` is a legal
+    ///   escape in every one of those contexts, unicode-mode regexes included.
+    /// - `<!--` moves the tokenizer into script-data-escaped, and a later
+    ///   `<script` with no intervening `-->` moves it into
+    ///   script-data-double-escaped, where the element's real `</script>` no
+    ///   longer closes it. `\x21` is used rather than `\!` because `\!` is not a
+    ///   legal identity escape inside a unicode-mode regex literal.
+    ///
+    /// marked.min.js and highlight.min.js already contain `<!--` today (both
+    /// closed, so neither is exploitable) — this keeps a library bump from
+    /// making that matter.
     private static func bundledJS(_ name: String) -> String {
         bundledResource(name, "js")
             .replacingOccurrences(of: "</script", with: "<\\/script", options: [.caseInsensitive])
+            .replacingOccurrences(of: "<!--", with: "<\\x21--")
     }
 }
