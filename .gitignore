@@ -15,3 +15,7 @@ build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Agent worktrees and SDD scratch
+.worktrees/
+.superpowers/
