@@ -12,7 +12,7 @@ final class MarkdownRendererTests: XCTestCase {
         let html = renderer.render(content: md, config: config, fileExtension: "md")
         XCTAssertTrue(html.contains("class=\"markdown\""))
         XCTAssertTrue(html.contains("# Hello World"))
-        XCTAssertTrue(html.contains("marked.min.js"))
+        XCTAssertTrue(html.contains("marked v15"), "marked.js source not inlined")
     }
 
     func testContainsMarkedParseScript() {

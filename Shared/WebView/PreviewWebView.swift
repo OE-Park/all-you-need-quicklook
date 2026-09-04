@@ -3,6 +3,51 @@ import WebKit
 
 public final class PreviewWebView: WKWebView {
 
+    /// Content Security Policy applied to every preview document.
+    ///
+    /// The policy is deliberately inline-only for script and style: the preview
+    /// is handed to WebKit through `loadHTMLString(_:baseURL:)`, whose document
+    /// gets an opaque origin and cannot load *any* subresource from the file://
+    /// `baseURL` — not with `'self'`, not with a `file:` source. `HTMLTemplate`
+    /// therefore inlines the bundled libraries (marked.js, highlight.js, KaTeX)
+    /// directly into the document, and this policy admits exactly that while
+    /// still refusing third-party script, style, frames and everything else that
+    /// `default-src 'none'` covers.
+    ///
+    /// `img-src` keeps http/https because remote images in Markdown and notebook
+    /// output are a deliberate, spec-required allowance; `font-src data:` keeps
+    /// fonts to embedded data URIs only.
+    ///
+    /// Must contain no `"` or `\` — it is interpolated into a JS string literal
+    /// by `cspUserScriptSource`.
+    public nonisolated static let contentSecurityPolicy =
+        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' blob:; "
+        + "img-src data: http: https:; font-src data:;"
+
+    /// Installs `contentSecurityPolicy` as a `<meta http-equiv>` before the
+    /// document's own markup is parsed.
+    ///
+    /// At `.atDocumentStart` for a `loadHTMLString` load, `document.head` is
+    /// still `null` — only `document.documentElement` exists. Reaching straight
+    /// for `document.head` throws, which silently leaves the document with *no*
+    /// policy at all, so the head is created here when the parser has not
+    /// produced one yet.
+    nonisolated static var cspUserScriptSource: String {
+        """
+        (function() {
+            var meta = document.createElement('meta');
+            meta.httpEquiv = 'Content-Security-Policy';
+            meta.content = "\(contentSecurityPolicy)";
+            var head = document.head;
+            if (!head) {
+                head = document.createElement('head');
+                document.documentElement.prepend(head);
+            }
+            head.prepend(meta);
+        })();
+        """
+    }
+
     private let imageTimeoutSeconds: TimeInterval
 
     public init(frame: CGRect = .zero, imageTimeoutSeconds: TimeInterval = 3) {
@@ -12,16 +57,8 @@ public final class PreviewWebView: WKWebView {
         config.preferences.setValue(false, forKey: "allowFileAccessFromFileURLs")
 
         let contentController = WKUserContentController()
-        // Content Security Policy: only allow inline scripts (our bundled JS is
-        // loaded via <script src> from local baseURL), inline styles, and images
-        // from data: URIs and HTTP/HTTPS. Blocks external JS/CSS/iframes.
         let cspScript = WKUserScript(
-            source: """
-            var meta = document.createElement('meta');
-            meta.httpEquiv = 'Content-Security-Policy';
-            meta.content = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' blob:; img-src data: http: https:; font-src data:;";
-            document.head.prepend(meta);
-            """,
+            source: Self.cspUserScriptSource,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
