@@ -11,7 +11,7 @@ public final class PlainTextRenderer: Renderer {
 
         let customCSS = """
         pre.plaintext-content {
-            font-family: "\(resolved.fontFamily)", monospace;
+            font-family: "\(escapeCSSString(resolved.fontFamily))", monospace;
             font-size: \(resolved.fontSize)px;
             line-height: \(resolved.lineHeight);
         }
@@ -26,7 +26,7 @@ public final class PlainTextRenderer: Renderer {
 
         let processedLines = lines.enumerated().map { index, line in
             let escapedLine = applyLogPatterns(
-                escapeHTML(line), patterns: resolved.logLevelPatterns
+                HTMLEscaper.escape(line), patterns: resolved.logLevelPatterns
             )
             if resolved.showLineNumbers {
                 let num = String(index + 1)
@@ -43,13 +43,17 @@ public final class PlainTextRenderer: Renderer {
         content: String, language: String,
         resolved: ResolvedFileTypeConfig, customCSS: String
     ) -> String {
-        let escaped = escapeForJS(content)
+        let contentString = javaScriptString(content)
+        let languageString = javaScriptString(language)
+        let languageClass = HTMLEscaper.escape(language)
         let body = """
-        <pre class="plaintext-content"><code id="code-content" class="language-\(language)"></code></pre>
-        <script>
+        <pre class="plaintext-content"><code id="code-content" class="language-\(languageClass)"></code></pre>
+        <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
         document.addEventListener('DOMContentLoaded', function() {
-            var raw = `\(escaped)`;
-            var result = hljs.highlight(raw, { language: '\(language)' });
+            var raw = \(contentString);
+            var result = hljs.getLanguage(\(languageString))
+                ? hljs.highlight(raw, { language: \(languageString) })
+                : hljs.highlightAuto(raw);
             document.getElementById('code-content').innerHTML = result.value;
         });
         </script>
@@ -77,18 +81,17 @@ public final class PlainTextRenderer: Renderer {
         return result
     }
 
-    private func escapeHTML(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
+    private func javaScriptString(_ string: String) -> String {
+        let data = try! JSONEncoder().encode(string)
+        return String(decoding: data, as: UTF8.self)
     }
 
-    private func escapeForJS(_ string: String) -> String {
+    private func escapeCSSString(_ string: String) -> String {
         string
             .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "`", with: "\\`")
-            .replacingOccurrences(of: "$", with: "\\$")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "<", with: "\\3C ")
+            .replacingOccurrences(of: "\n", with: "\\A ")
+            .replacingOccurrences(of: "\r", with: "\\D ")
     }
 }

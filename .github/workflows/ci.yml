@@ -39,6 +39,7 @@ jobs:
           -project AllYouNeedQuickLook.xcodeproj
           -scheme Tests
           -destination "platform=macOS"
+          CODE_SIGNING_ALLOWED=NO
 
       - name: Build host app
         run: >
@@ -46,4 +47,5 @@ jobs:
           -project AllYouNeedQuickLook.xcodeproj
           -scheme AllYouNeedQuickLook
           -destination "platform=macOS"
+          CODE_SIGNING_ALLOWED=NO
           build

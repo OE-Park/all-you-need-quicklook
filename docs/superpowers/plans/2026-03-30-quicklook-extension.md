@@ -10,7 +10,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-30-quicklook-extension-design.md`
 
-**Security Note:** All renderers that produce HTML from user content must HTML-escape text before injection. In the WKWebView, a Content Security Policy (CSP) meta tag restricts script sources to inline-only (no external JS loading). The `innerHTML` usage in the browser-side JS is intentional — it processes content that has been either (a) HTML-escaped on the Swift side before template injection, or (b) produced by trusted bundled libraries (marked.js, KaTeX). External navigation and external script/CSS loading are blocked by CSP and WKNavigationDelegate.
+**Security Note:** All renderers that produce HTML from user content must HTML-escape text before injection. Inline renderer scripts require a per-document CSP nonce; bundled JS/CSS/fonts load only through `quicklook-resource:`, and external images load only through the timeout-controlled `quicklook-image:` handler. Notebook `text/html` output is displayed as escaped source. External navigation and external script/CSS loading are blocked by CSP and `WKNavigationDelegate`.
+
+> **Stabilization override (2026-09-03):** Completed Task 9–10 code snippets below record the original TDD sequence and are not the current security implementation. For rendering, CSP, navigation, external-image loading, signing, and QuickLook metadata, follow the design spec and current source/tests.
 
 ---
 
@@ -35,7 +37,9 @@
 | File | Responsibility |
 |------|---------------|
 | `QuickLookExtension/PreviewViewController.swift` | QLPreviewingController — routes file to renderer, loads into WKWebView |
-| `QuickLookExtension/WebView/PreviewWebView.swift` | WKWebView subclass with security policies, 3s image timeout, navigation blocking |
+| `Shared/WebView/PreviewWebView.swift` | WKWebView subclass with security policies, image timeout, navigation blocking |
+| `Shared/WebView/BundledResourceSchemeHandler.swift` | Restricts bundled JS/CSS/font access to the Shared resource directory |
+| `Shared/WebView/ExternalImageSchemeHandler.swift` | Loads HTTP(S) images with timeout, MIME, status, and size validation |
 | `QuickLookExtension/Info.plist` | QLSupportedContentTypes, UTExportedTypeDeclarations |
 | `QuickLookExtension/QuickLookExtension.entitlements` | Sandbox + network.client + app-groups |
 
@@ -1714,7 +1718,7 @@ git commit -m "feat: add Notebook Codable models for ipynb JSON parsing"
 - Create: `Shared/Renderers/NotebookRenderer.swift`
 - Create: `Tests/NotebookRendererTests.swift`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```swift
 // Tests/NotebookRendererTests.swift
@@ -1801,7 +1805,7 @@ final class NotebookRendererTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination "platform=macOS"
@@ -1809,9 +1813,9 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Expected: FAIL — `NotebookRenderer` not found
 
-- [ ] **Step 3: Implement NotebookRenderer**
+- [x] **Step 3: Implement NotebookRenderer**
 
-The NotebookRenderer parses ipynb JSON in Swift and generates static HTML for each cell. Markdown cells are placed as escaped text in `.markdown-cell-raw` divs — the browser-side JS then uses marked.js to render them. Code cell sources are HTML-escaped on the Swift side and placed in `<code>` elements for highlight.js. Output HTML from `text/html` mime type is inserted as-is (this is the same behavior as Jupyter itself — notebook HTML outputs are trusted content from the notebook author). Error tracebacks go through ANSIConverter which HTML-escapes before processing ANSI codes.
+The NotebookRenderer parses ipynb JSON in Swift and generates static HTML for each cell. Markdown cells are placed as escaped text in `.markdown-cell-raw` divs — the browser-side JS then uses marked.js to render them. Code cell sources are HTML-escaped on the Swift side and placed in `<code>` elements for highlight.js. The stabilization override displays `text/html` mime output as escaped source. Error tracebacks go through ANSIConverter, which HTML-escapes before processing ANSI codes.
 
 ```swift
 // Shared/Renderers/NotebookRenderer.swift
@@ -1991,7 +1995,7 @@ public final class NotebookRenderer: Renderer {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination "platform=macOS"
@@ -1999,7 +2003,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Expected: All 8 tests PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Shared/Renderers/NotebookRenderer.swift Tests/NotebookRendererTests.swift
@@ -2015,7 +2019,7 @@ git commit -m "feat: add NotebookRenderer with full cell type and output support
 
 This component is used by both the QuickLook extension and the host app's Preview tab.
 
-- [ ] **Step 1: Implement PreviewWebView**
+- [x] **Step 1: Implement PreviewWebView**
 
 ```swift
 // Shared/WebView/PreviewWebView.swift
@@ -2089,7 +2093,7 @@ extension PreviewWebView: WKNavigationDelegate {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2097,7 +2101,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add Shared/WebView/PreviewWebView.swift
@@ -2117,7 +2121,7 @@ git commit -m "feat: add PreviewWebView with CSP, navigation blocking, and sandb
 - Create: `Shared/Resources/css/highlight-dark.min.css`
 - Create: KaTeX font files
 
-- [ ] **Step 1: Download marked.js**
+- [x] **Step 1: Download marked.js**
 
 ```bash
 curl -L -o Shared/Resources/js/marked.min.js "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
@@ -2125,7 +2129,7 @@ curl -L -o Shared/Resources/js/marked.min.js "https://cdn.jsdelivr.net/npm/marke
 
 Verify: file exists and is ~50KB+
 
-- [ ] **Step 2: Download highlight.js with common languages**
+- [x] **Step 2: Download highlight.js with common languages**
 
 ```bash
 curl -L -o Shared/Resources/js/highlight.min.js "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js"
@@ -2133,7 +2137,7 @@ curl -L -o Shared/Resources/css/highlight-light.min.css "https://cdn.jsdelivr.ne
 curl -L -o Shared/Resources/css/highlight-dark.min.css "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github-dark.min.css"
 ```
 
-- [ ] **Step 3: Download KaTeX**
+- [x] **Step 3: Download KaTeX**
 
 ```bash
 curl -L -o katex.tar.gz "https://github.com/KaTeX/KaTeX/releases/download/v0.16.11/katex.tar.gz"
@@ -2145,7 +2149,7 @@ cp katex/fonts/* Shared/Resources/css/fonts/
 rm -rf katex katex.tar.gz
 ```
 
-- [ ] **Step 4: Verify all files exist**
+- [x] **Step 4: Verify all files exist**
 
 ```bash
 ls -la Shared/Resources/js/
@@ -2155,7 +2159,7 @@ ls -la Shared/Resources/css/fonts/
 
 Expected: marked.min.js, highlight.min.js, katex.min.js, katex.min.css, highlight themes, KaTeX fonts all present
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Shared/Resources/
@@ -2169,7 +2173,7 @@ git commit -m "chore: bundle marked.js, highlight.js, and KaTeX libraries"
 **Files:**
 - Modify: `QuickLookExtension/PreviewViewController.swift`
 
-- [ ] **Step 1: Implement PreviewViewController**
+- [x] **Step 1: Implement PreviewViewController**
 
 ```swift
 // QuickLookExtension/PreviewViewController.swift
@@ -2220,7 +2224,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2228,7 +2232,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add QuickLookExtension/PreviewViewController.swift
