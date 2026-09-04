@@ -5,6 +5,7 @@ import Shared
 struct SettingsView: View {
     @State private var config: AppConfig
     @State private var newExtension = ""
+    @State private var saveError: String?
     private let loader = ConfigLoader()
 
     init() {
@@ -42,6 +43,12 @@ struct SettingsView: View {
                         let ext = newExtension.trimmingCharacters(in: .whitespaces).lowercased()
                         guard !ext.isEmpty else { return }
                         if config.fileTypes == nil { config.fileTypes = [:] }
+                        // Assigning unconditionally would overwrite an existing
+                        // entry — typing "log" would wipe its level patterns.
+                        guard config.fileTypes?[ext] == nil else {
+                            newExtension = ""
+                            return
+                        }
                         config.fileTypes?[ext] = FileTypeConfig()
                         newExtension = ""
                     }
@@ -52,7 +59,10 @@ struct SettingsView: View {
             Section {
                 HStack {
                     Button("Reset to Default") {
-                        config = AppConfig()
+                        // The default is the bundled default-config.json, not
+                        // `AppConfig()` — that one has no fileTypes at all, and
+                        // saving it would drop the log level patterns for good.
+                        config = ConfigLoader.bundledDefault()
                         save()
                     }
                     Spacer()
@@ -63,6 +73,14 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .alert(
+            "Could not save settings",
+            isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 
     private var sortedFileTypes: [(key: String, value: FileTypeConfig)] {
@@ -102,7 +120,15 @@ struct SettingsView: View {
         }
     }
 
+    /// The only persistence path in the app, Reset included. Swallowing the
+    /// error here would show a Save that appears to have worked while the
+    /// extension goes on reading the old file — or, if the App Group container
+    /// is unavailable, a file in a temporary directory that it never reads.
     private func save() {
-        try? loader.save(config)
+        do {
+            try loader.save(config)
+        } catch {
+            saveError = error.localizedDescription
+        }
     }
 }

@@ -22,13 +22,13 @@ public final class ConfigLoader: Sendable {
 
     public func load() -> AppConfig {
         guard FileManager.default.fileExists(atPath: configFileURL.path) else {
-            return loadBundledDefault()
+            return Self.bundledDefault()
         }
         do {
             let data = try Data(contentsOf: configFileURL)
             return try JSONDecoder().decode(AppConfig.self, from: data)
         } catch {
-            return loadBundledDefault()
+            return Self.bundledDefault()
         }
     }
 
@@ -39,8 +39,19 @@ public final class ConfigLoader: Sendable {
         try data.write(to: configFileURL, options: .atomic)
     }
 
-    private func loadBundledDefault() -> AppConfig {
-        guard let url = Bundle(for: Self.self).url(forResource: "default-config", withExtension: "json"),
+    /// The shipped default configuration — `Shared/Resources/default-config.json`.
+    ///
+    /// Public because it is the *only* way back: `load()` falls back to it only
+    /// while no `config.json` exists, and the first `save()` ends that forever.
+    /// A "Reset to Default" that assigned `AppConfig()` instead would write a
+    /// config with no `fileTypes` at all — silently dropping the `log` level
+    /// patterns for every preview, in the QuickLook extension too, with nothing
+    /// in the app able to bring them back.
+    ///
+    /// Falls back to `AppConfig()` only when the bundled resource is missing,
+    /// which would mean a broken build.
+    public static func bundledDefault() -> AppConfig {
+        guard let url = Bundle(for: ConfigLoader.self).url(forResource: "default-config", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let config = try? JSONDecoder().decode(AppConfig.self, from: data)
         else {
