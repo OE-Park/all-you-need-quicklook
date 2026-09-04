@@ -13,7 +13,6 @@ public final class PreviewWebView: WKWebView {
         self.imageHandler = imageHandler
 
         let config = WKWebViewConfiguration()
-        config.preferences.setValue(false, forKey: "allowFileAccessFromFileURLs")
         config.setURLSchemeHandler(resourceHandler, forURLScheme: BundledResourceSchemeHandler.scheme)
         config.setURLSchemeHandler(imageHandler, forURLScheme: ExternalImageSchemeHandler.scheme)
 

@@ -18,7 +18,7 @@ public enum HTMLTemplate {
         <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'nonce-\(scriptNonce)' quicklook-resource:; style-src 'self' 'unsafe-inline' quicklook-resource:; img-src data: quicklook-image:; font-src data: quicklook-resource:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'nonce-\(scriptNonce)'; style-src 'self' 'unsafe-inline'; img-src data: quicklook-image:; font-src data: 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
         <style>
         :root {
             --bg: #ffffff;

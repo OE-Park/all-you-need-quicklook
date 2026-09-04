@@ -141,6 +141,39 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         )
     }
 
+    func testCSPBlocksResourceSchemeFromDifferentHost() async throws {
+        let handler = CSPProbeSchemeHandler()
+        let configuration = WKWebViewConfiguration()
+        configuration.setURLSchemeHandler(handler, forURLScheme: "quicklook-resource")
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        let html = HTMLTemplate.wrap(
+            body: """
+            <link rel="stylesheet" href="quicklook-resource://bundle/probe.css">
+            <div id="csp-probe">probe</div>
+            <script src="quicklook-resource://untrusted/payload.js"></script>
+            """,
+            rendererType: "markdown"
+        )
+
+        webView.loadHTMLString(
+            html,
+            baseURL: URL(string: "quicklook-resource://bundle/")
+        )
+
+        try await waitUntilTrue(
+            in: webView,
+            expression: """
+            document.documentElement.dataset.quicklookReady === 'true' &&
+            getComputedStyle(document.getElementById('csp-probe')).color === 'rgb(1, 2, 3)'
+            """
+        )
+        let crossOriginScriptRan = try await webView.evaluateJavaScript(
+            "globalThis.crossOriginScriptRan === true"
+        ) as? Bool
+
+        XCTAssertEqual(crossOriginScriptRan, false)
+    }
+
     private func resourcesURL() throws -> URL {
         try XCTUnwrap(Bundle(for: ConfigLoader.self).resourceURL)
     }
@@ -174,4 +207,31 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         ) as? String) ?? "unavailable"
         XCTFail("Timed out waiting for JavaScript expression: \(expression)\nDiagnostics: \(diagnostics)")
     }
+}
+
+private final class CSPProbeSchemeHandler: NSObject, WKURLSchemeHandler, @unchecked Sendable {
+    func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
+        guard let url = urlSchemeTask.request.url else {
+            urlSchemeTask.didFailWithError(URLError(.badURL))
+            return
+        }
+
+        let isStylesheet = url.pathExtension.lowercased() == "css"
+        let source = isStylesheet
+            ? "#csp-probe { color: rgb(1, 2, 3); }"
+            : url.host == "untrusted" ? "globalThis.crossOriginScriptRan = true;" : ""
+        let data = Data(source.utf8)
+        let response = URLResponse(
+            url: url,
+            mimeType: isStylesheet ? "text/css" : "text/javascript",
+            expectedContentLength: data.count,
+            textEncodingName: "utf-8"
+        )
+
+        urlSchemeTask.didReceive(response)
+        urlSchemeTask.didReceive(data)
+        urlSchemeTask.didFinish()
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: any WKURLSchemeTask) {}
 }
