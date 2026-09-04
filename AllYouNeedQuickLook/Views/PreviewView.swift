@@ -19,6 +19,16 @@ struct PreviewView: View {
 
     @State private var selectedSample: SampleFile?
 
+    /// The rendered document, recomputed when the selection changes.
+    ///
+    /// Rendering inside `body` re-read the sample from disk, re-read
+    /// `config.json` from the App Group and rebuilt the whole ~475 KB template
+    /// on *every* body evaluation, handing the web view a fresh string each
+    /// time. Doing it here means one render per selection.
+    @State private var renderedHTML: String?
+
+    private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
+
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedSample) {
@@ -29,8 +39,8 @@ struct PreviewView: View {
             }
             .navigationTitle("Samples")
         } detail: {
-            if let sample = selectedSample {
-                previewContent(for: sample)
+            if let html = renderedHTML {
+                PreviewWebViewRepresentable(html: html, resourcesURL: Self.resourcesURL)
             } else {
                 ContentUnavailableView(
                     "Select a Sample File",
@@ -39,10 +49,12 @@ struct PreviewView: View {
                 )
             }
         }
+        .onChange(of: selectedSample) { _, sample in
+            renderedHTML = sample.map(Self.render)
+        }
     }
 
-    @ViewBuilder
-    private func previewContent(for sample: SampleFile) -> some View {
+    private static func render(_ sample: SampleFile) -> String {
         let content = loadSampleContent(sample.name)
         let config = ConfigLoader().load()
         let renderer: Renderer = switch sample.ext {
@@ -50,13 +62,10 @@ struct PreviewView: View {
         case "ipynb": NotebookRenderer()
         default: PlainTextRenderer()
         }
-        let html = renderer.render(content: content, config: config, fileExtension: sample.ext)
-        let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
-
-        PreviewWebViewRepresentable(html: html, resourcesURL: resourcesURL)
+        return renderer.render(content: content, config: config, fileExtension: sample.ext)
     }
 
-    private func loadSampleContent(_ name: String) -> String {
+    private static func loadSampleContent(_ name: String) -> String {
         guard let url = Bundle.main.url(forResource: name, withExtension: nil)
                 ?? Bundle.main.url(
                     forResource: (name as NSString).deletingPathExtension,
