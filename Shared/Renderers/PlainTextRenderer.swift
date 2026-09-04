@@ -43,13 +43,14 @@ public final class PlainTextRenderer: Renderer {
         content: String, language: String,
         resolved: ResolvedFileTypeConfig, customCSS: String
     ) -> String {
-        let escaped = escapeForJS(content)
+        let escaped = ScriptEscaping.forTemplateLiteral(content)
+        let escapedLanguage = ScriptEscaping.forSingleQuotedLiteral(language)
         let body = """
-        <pre class="plaintext-content"><code id="code-content" class="language-\(language)"></code></pre>
+        <pre class="plaintext-content"><code id="code-content" class="language-\(escapeHTML(language))"></code></pre>
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             var raw = `\(escaped)`;
-            var result = hljs.highlight(raw, { language: '\(language)' });
+            var result = hljs.highlight(raw, { language: '\(escapedLanguage)' });
             document.getElementById('code-content').innerHTML = result.value;
         });
         </script>
@@ -83,12 +84,5 @@ public final class PlainTextRenderer: Renderer {
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
-    }
-
-    private func escapeForJS(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "`", with: "\\`")
-            .replacingOccurrences(of: "$", with: "\\$")
     }
 }

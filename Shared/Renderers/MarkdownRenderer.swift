@@ -6,7 +6,7 @@ public final class MarkdownRenderer: Renderer {
     public init() {}
 
     public func render(content: String, config: AppConfig, fileExtension: String) -> String {
-        let escapedContent = escapeForJS(content)
+        let escapedContent = ScriptEscaping.forTemplateLiteral(content)
         let body = """
         <div id="markdown-content" class="markdown"></div>
         <script>
@@ -53,22 +53,5 @@ public final class MarkdownRenderer: Renderer {
         </script>
         """
         return HTMLTemplate.wrap(body: body, rendererType: "markdown")
-    }
-
-    private func escapeForJS(_ string: String) -> String {
-        let escaped = string
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "`", with: "\\`")
-            .replacingOccurrences(of: "$", with: "\\$")
-        let pattern = try! NSRegularExpression(
-            pattern: "</script(?=[\\s>/]|$)",
-            options: .caseInsensitive
-        )
-        let range = NSRange(escaped.startIndex..., in: escaped)
-        return pattern.stringByReplacingMatches(
-            in: escaped,
-            range: range,
-            withTemplate: "<\\\\/script"
-        )
     }
 }

@@ -16,13 +16,22 @@ public final class PreviewWebView: WKWebView {
     ///
     /// `img-src` keeps http/https because remote images in Markdown and notebook
     /// output are a deliberate, spec-required allowance; `font-src data:` keeps
-    /// fonts to embedded data URIs only.
+    /// fonts to embedded data URIs only. `img-src` is consequently the *only*
+    /// outbound channel a previewed file has — see the plan's Security Note.
+    ///
+    /// `base-uri` and `form-action` are named explicitly because neither falls
+    /// back to `default-src`: without them an injected `<base>` or `<form>`
+    /// would be unrestricted even under `default-src 'none'`.
+    ///
+    /// `style-src` no longer names `blob:`. Nothing in this project creates a
+    /// blob stylesheet, and an unused source is only ever an unused source in
+    /// the attacker's favour.
     ///
     /// Must contain no `"` or `\` — it is interpolated into a JS string literal
     /// by `cspUserScriptSource`.
     public nonisolated static let contentSecurityPolicy =
-        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' blob:; "
-        + "img-src data: http: https:; font-src data:;"
+        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+        + "img-src data: http: https:; font-src data:; base-uri 'none'; form-action 'none';"
 
     /// Installs `contentSecurityPolicy` as a `<meta http-equiv>` before the
     /// document's own markup is parsed.
@@ -81,27 +90,71 @@ public final class PreviewWebView: WKWebView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
+    /// The `baseURL` of a load this view itself started, still waiting for its
+    /// navigation to be decided.
+    ///
+    /// `loadHTMLString(_:baseURL:)` reaches the navigation delegate as a
+    /// `.other` navigation to that `baseURL`, indistinguishable by type from a
+    /// `window.location =` the previewed document performs. Recording the URL
+    /// we are expecting — and clearing it the moment it is allowed — is what
+    /// lets `decidePolicyFor` tell the two apart.
+    private var pendingLoadBaseURL: URL?
+
     public func loadHTML(_ html: String, resourcesURL: URL?) {
+        pendingLoadBaseURL = resourcesURL
         if let baseURL = resourcesURL {
             loadHTMLString(html, baseURL: baseURL)
         } else {
             loadHTMLString(html, baseURL: nil)
         }
     }
+
+    /// Whether a `.other` navigation to `url` is this view's own pending load.
+    ///
+    /// Compared standardized and without a trailing slash: `resourcesURL` is a
+    /// directory URL, and WebKit does not promise to hand the string back
+    /// byte-for-byte.
+    func consumePendingLoad(of url: URL?) -> Bool {
+        guard let pending = pendingLoadBaseURL else { return false }
+        guard let url, Self.sameResource(url, pending) else { return false }
+        pendingLoadBaseURL = nil
+        return true
+    }
+
+    private nonisolated static func sameResource(_ lhs: URL, _ rhs: URL) -> Bool {
+        func key(_ url: URL) -> String {
+            var string = url.standardized.absoluteString
+            while string.count > 1, string.hasSuffix("/") { string.removeLast() }
+            return string
+        }
+        return key(lhs) == key(rhs)
+    }
 }
 
 extension PreviewWebView: WKNavigationDelegate {
 
+    /// Allows this view's own document load and nothing else.
+    ///
+    /// Gating on `navigationType` alone is not enough. `.other` is the type of
+    /// the `loadHTMLString` load, but it is *also* the type of a
+    /// `window.location = 'https://…'`, a `<meta http-equiv="refresh">` and a
+    /// script-driven `form.submit()` — so allowing every `.other` left the
+    /// previewed document free to navigate anywhere it liked, and only the
+    /// user-initiated kinds (link clicks) were ever blocked.
+    ///
+    /// The destination is therefore checked too: `nil` and `about:blank` are
+    /// the load with no base URL, and exactly one navigation to the base URL
+    /// this view last passed to `loadHTMLString` is admitted. Everything else,
+    /// of any type or scheme, is cancelled.
     public func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
-        // Allow initial HTML load and same-document navigation (anchors)
-        if navigationAction.navigationType == .other {
-            return .allow
-        }
-        // Block all user-initiated navigation (link clicks, form submissions, etc.)
-        return .cancel
+        guard navigationAction.navigationType == .other else { return .cancel }
+
+        let url = navigationAction.request.url
+        if url == nil || url?.absoluteString == "about:blank" { return .allow }
+        return consumePendingLoad(of: url) ? .allow : .cancel
     }
 
     public func webView(

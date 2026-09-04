@@ -64,7 +64,8 @@ final class PreviewWebViewCSPTests: XCTestCase {
     /// likely to actually write. Anything added here now fails the test.
     func testPolicyAllowsExactlyTheInlineScriptAndStyleSources() throws {
         XCTAssertEqual(try directive("script-src"), ["'unsafe-inline'"])
-        XCTAssertEqual(try directive("style-src"), ["'unsafe-inline'", "blob:"])
+        XCTAssertEqual(try directive("style-src"), ["'unsafe-inline'"],
+                       "style-src names a source nothing in this project emits")
     }
 
     func testPolicyBlocksFramesAndEverythingElseByDefault() throws {
@@ -73,6 +74,15 @@ final class PreviewWebViewCSPTests: XCTestCase {
         let policy = PreviewWebView.contentSecurityPolicy
         XCTAssertFalse(policy.contains("frame-src"), "no frame-src may override default-src 'none'")
         XCTAssertFalse(policy.contains("child-src"), "no child-src may override default-src 'none'")
+    }
+
+    /// Neither directive falls back to `default-src`, so `'none'` there does
+    /// not cover them: without these an injected `<base href>` would retarget
+    /// every relative URL in the document, and an injected `<form>` could post
+    /// the preview's contents anywhere.
+    func testPolicyPinsBaseURIAndFormAction() throws {
+        XCTAssertEqual(try directive("base-uri"), ["'none'"])
+        XCTAssertEqual(try directive("form-action"), ["'none'"])
     }
 
     // MARK: - Deliberate allowances

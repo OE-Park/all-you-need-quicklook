@@ -162,6 +162,72 @@ final class PreviewWebViewLiveTests: XCTestCase {
                        "marked stopped recognising HTML comments after source escaping")
     }
 
+    // MARK: - A previewed file cannot break out of its script element
+
+    // The syntax-highlight path interpolates the file's own text into a
+    // template literal inside an inline `<script>`. Escaping the *literal* is
+    // not enough: the HTML tokenizer runs first, so a literal `</script` ends
+    // the *element* and the remainder is parsed as markup — which
+    // `script-src 'unsafe-inline'` then permits to run. These load the composed
+    // document and ask the DOM, rather than grepping the string.
+
+    private static let breakoutPayload =
+        "</script><img src=x onerror=\"window.__pwnedByImage = 1\">\n"
+        + "<script>window.__pwnedByScript = 1;</script>"
+
+    func testPlainTextCannotBreakOutOfItsScriptElement() throws {
+        var config = AppConfig()
+        config.fileTypes = ["txt": FileTypeConfig(syntaxHighlight: true, syntaxLanguage: "xml")]
+        let web = load(PlainTextRenderer().render(
+            content: Self.breakoutPayload, config: config, fileExtension: "txt"
+        ))
+
+        XCTAssertEqual(try evaluateString("String(document.querySelectorAll('img').length)", in: web), "0",
+                       "the payload became a live element")
+        XCTAssertEqual(try evaluateString("String(typeof window.__pwnedByImage)", in: web), "undefined")
+        XCTAssertEqual(try evaluateString("String(typeof window.__pwnedByScript)", in: web), "undefined")
+
+        // …and the file still rendered, so the escape did not simply break it.
+        XCTAssertTrue(
+            try evaluateString("document.getElementById('code-content').textContent", in: web)
+                .contains("__pwnedByImage"),
+            "the file's text did not reach the page at all"
+        )
+    }
+
+    /// The language comes from the config the Settings tab writes, and lands in
+    /// a single-quoted literal in the same inline script.
+    func testPlainTextSyntaxLanguageCannotBreakOutOfItsScriptElement() throws {
+        var config = AppConfig()
+        config.fileTypes = [
+            "txt": FileTypeConfig(
+                syntaxHighlight: true,
+                syntaxLanguage: "xml' });</script><img src=x onerror=\"window.__pwnedByLanguage = 1\">"
+            )
+        ]
+        let web = load(PlainTextRenderer().render(content: "hello", config: config, fileExtension: "txt"))
+
+        XCTAssertEqual(try evaluateString("String(document.querySelectorAll('img').length)", in: web), "0")
+        XCTAssertEqual(try evaluateString("String(typeof window.__pwnedByLanguage)", in: web), "undefined")
+    }
+
+    /// Markdown's raw HTML is a separate, *documented* matter: marked has had no
+    /// sanitizer since v5 and the bundled build is v15, so `<img onerror>` in a
+    /// `.md` file does run — see the plan's Security Note. What the escape has
+    /// to guarantee is that the payload arrives as marked's output *inside* the
+    /// container, rather than as document-level markup that ended the script
+    /// element early.
+    func testMarkdownPayloadArrivesThroughMarkedRatherThanByEndingTheScript() throws {
+        let web = load(renderMarkdown(Self.breakoutPayload))
+        XCTAssertEqual(
+            try evaluateString("String(document.querySelectorAll('body > img, head img').length)", in: web),
+            "0",
+            "the payload ended the script element and was parsed as document markup"
+        )
+        XCTAssertEqual(try evaluateString("String(typeof window.__pwnedByScript)", in: web), "undefined",
+                       "an injected <script> element ran")
+    }
+
     // MARK: - Helpers
 
     private func renderMarkdown(_ markdown: String) -> String {
