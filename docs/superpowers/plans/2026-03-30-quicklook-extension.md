@@ -10,7 +10,45 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-30-quicklook-extension-design.md`
 
-**Security Note:** All renderers that produce HTML from user content must HTML-escape text before injection. In the WKWebView, a Content Security Policy (CSP) meta tag restricts script sources to inline-only (no external JS loading). The `innerHTML` usage in the browser-side JS is intentional — it processes content that has been either (a) HTML-escaped on the Swift side before template injection, or (b) produced by trusted bundled libraries (marked.js, KaTeX). External navigation and external script/CSS loading are blocked by CSP and WKNavigationDelegate.
+**Security Note — actual threat model:** A previewed file **can run script**. This is a
+deliberate, currently-accepted position, not an accident, and it is written down here so
+nobody re-derives it from the code.
+
+What is true:
+
+- Every renderer HTML-escapes the text it injects, and every Swift value interpolated into
+  an inline `<script>` goes through `Shared/Renderers/ScriptEscaping.swift`, which
+  neutralises `</script` as well as the JavaScript literal it lands in. A previewed file
+  therefore cannot end a script element and be parsed as document markup.
+- The CSP (`Shared/WebView/PreviewWebView.swift`) is `default-src 'none'` with
+  `script-src 'unsafe-inline'`, `style-src 'unsafe-inline'`, `img-src data: http: https:`,
+  `font-src data:`, `base-uri 'none'` and `form-action 'none'`. External JS, external CSS,
+  frames, `eval`, XHR/fetch/WebSocket (no `connect-src`) and form posts are all blocked.
+- `WKNavigationDelegate` cancels every navigation except this view's own document load —
+  script-initiated (`window.location`, meta refresh) included.
+
+What is **not** true, and is the reason a previewed file can run script:
+
+- **Markdown source is not sanitized.** `MarkdownRenderer` does
+  `container.innerHTML = marked.parse(raw)`. marked has shipped no sanitizer since v5 and
+  the bundled build is v15, so raw HTML in a `.md` file — `<img src=x onerror=…>`, an
+  inline event handler on anything — reaches the DOM as markup.
+- **Notebook `text/html` output is injected unescaped by design**
+  (`NotebookRenderer.renderMimeData`), matching Jupyter's own trust model.
+- `script-src 'unsafe-inline'` admits both of those, and inline `<script>` elements from
+  either path (an `innerHTML`-inserted `<script>` does not execute, but an inline event
+  handler does).
+
+So the blast radius of a malicious preview is: **arbitrary script in an opaque-origin
+document with no `connect-src`, whose only outbound channel is `img-src http: https:`**
+(exfiltration by image URL). The QuickLook extension additionally holds
+`com.apple.security.network.client`, so that channel does reach the network. There is no
+access to the file system, to other origins, or to the host app's data.
+
+Closing this would take either sanitizing marked's output (e.g. DOMPurify) or moving
+`script-src` to a nonce so only the template's own scripts run. Neither is implemented:
+which one to take is a product decision the owner has not made yet. Do not "fix" this in
+passing — raise it.
 
 ---
 
@@ -2245,7 +2283,7 @@ git commit -m "feat: implement PreviewViewController with file routing to render
 - Create: `AllYouNeedQuickLook/Views/SettingsView.swift` (placeholder)
 - Create: `AllYouNeedQuickLook/Views/PreviewView.swift` (placeholder)
 
-- [ ] **Step 1: Implement App with TabView and placeholder views**
+- [x] **Step 1: Implement App with TabView and placeholder views**
 
 ```swift
 // AllYouNeedQuickLook/App.swift
@@ -2309,7 +2347,7 @@ struct PreviewView: View {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2317,7 +2355,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/App.swift AllYouNeedQuickLook/Views/
@@ -2331,7 +2369,7 @@ git commit -m "feat: add host app shell with TabView and placeholder views"
 **Files:**
 - Modify: `AllYouNeedQuickLook/Views/WelcomeView.swift`
 
-- [ ] **Step 1: Implement WelcomeView**
+- [x] **Step 1: Implement WelcomeView**
 
 ```swift
 // AllYouNeedQuickLook/Views/WelcomeView.swift
@@ -2391,7 +2429,7 @@ struct WelcomeView: View {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2399,7 +2437,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/Views/WelcomeView.swift
@@ -2413,7 +2451,7 @@ git commit -m "feat: implement WelcomeView with extension activation guide"
 **Files:**
 - Modify: `AllYouNeedQuickLook/Views/SettingsView.swift`
 
-- [ ] **Step 1: Implement SettingsView**
+- [x] **Step 1: Implement SettingsView**
 
 ```swift
 // AllYouNeedQuickLook/Views/SettingsView.swift
@@ -2423,6 +2461,7 @@ import Shared
 struct SettingsView: View {
     @State private var config: AppConfig
     @State private var newExtension = ""
+    @State private var saveError: String?
     private let loader = ConfigLoader()
 
     init() {
@@ -2447,9 +2486,9 @@ struct SettingsView: View {
             }
 
             Section("File Type Settings") {
-                ForEach(sortedFileTypes, id: \.key) { ext, fileType in
-                    DisclosureGroup(ext) {
-                        fileTypeEditor(for: ext)
+                ForEach(sortedFileTypes, id: \.key) { entry in
+                    DisclosureGroup(entry.key) {
+                        fileTypeEditor(for: entry.key)
                     }
                 }
 
@@ -2460,6 +2499,12 @@ struct SettingsView: View {
                         let ext = newExtension.trimmingCharacters(in: .whitespaces).lowercased()
                         guard !ext.isEmpty else { return }
                         if config.fileTypes == nil { config.fileTypes = [:] }
+                        // Assigning unconditionally would overwrite an existing
+                        // entry — typing "log" would wipe its level patterns.
+                        guard config.fileTypes?[ext] == nil else {
+                            newExtension = ""
+                            return
+                        }
                         config.fileTypes?[ext] = FileTypeConfig()
                         newExtension = ""
                     }
@@ -2470,7 +2515,10 @@ struct SettingsView: View {
             Section {
                 HStack {
                     Button("Reset to Default") {
-                        config = AppConfig()
+                        // The default is the bundled default-config.json, not
+                        // `AppConfig()` — that one has no fileTypes at all, and
+                        // saving it would drop the log level patterns for good.
+                        config = ConfigLoader.bundledDefault()
                         save()
                     }
                     Spacer()
@@ -2481,6 +2529,14 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .alert(
+            "Could not save settings",
+            isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 
     private var sortedFileTypes: [(key: String, value: FileTypeConfig)] {
@@ -2520,13 +2576,21 @@ struct SettingsView: View {
         }
     }
 
+    /// The only persistence path in the app, Reset included. Swallowing the
+    /// error here would show a Save that appears to have worked while the
+    /// extension goes on reading the old file — or, if the App Group container
+    /// is unavailable, a file in a temporary directory that it never reads.
     private func save() {
-        try? loader.save(config)
+        do {
+            try loader.save(config)
+        } catch {
+            saveError = error.localizedDescription
+        }
     }
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2534,7 +2598,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/Views/SettingsView.swift
@@ -2553,7 +2617,7 @@ git commit -m "feat: implement SettingsView with global and per-extension config
 - Create: `AllYouNeedQuickLook/SampleFiles/sample.log`
 - Create: `AllYouNeedQuickLook/SampleFiles/sample.ipynb`
 
-- [ ] **Step 1: Create sample files**
+- [x] **Step 1: Create sample files**
 
 `AllYouNeedQuickLook/SampleFiles/sample.md`:
 
@@ -2704,7 +2768,7 @@ Special characters: <html> & "quotes"
 }
 ```
 
-- [ ] **Step 2: Create PreviewWebViewRepresentable**
+- [x] **Step 2: Create PreviewWebViewRepresentable**
 
 ```swift
 // AllYouNeedQuickLook/Views/PreviewWebViewRepresentable.swift
@@ -2715,19 +2779,39 @@ struct PreviewWebViewRepresentable: NSViewRepresentable {
     let html: String
     let resourcesURL: URL?
 
+    /// Remembers what the web view is already showing.
+    ///
+    /// SwiftUI calls `updateNSView` on every state invalidation, not only when
+    /// `html` changes. Reloading unconditionally tore down and re-parsed the
+    /// whole document each time — and since the libraries were inlined, that
+    /// document is ~475 KB of minified JS, with a visible flash.
+    final class Coordinator {
+        var loadedHTML: String?
+        var loadedResourcesURL: URL?
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeNSView(context: Context) -> PreviewWebView {
         let webView = PreviewWebView()
-        webView.loadHTML(html, resourcesURL: resourcesURL)
+        loadIfNeeded(webView, context.coordinator)
         return webView
     }
 
     func updateNSView(_ webView: PreviewWebView, context: Context) {
+        loadIfNeeded(webView, context.coordinator)
+    }
+
+    private func loadIfNeeded(_ webView: PreviewWebView, _ coordinator: Coordinator) {
+        guard coordinator.loadedHTML != html || coordinator.loadedResourcesURL != resourcesURL else { return }
+        coordinator.loadedHTML = html
+        coordinator.loadedResourcesURL = resourcesURL
         webView.loadHTML(html, resourcesURL: resourcesURL)
     }
 }
 ```
 
-- [ ] **Step 3: Implement PreviewView**
+- [x] **Step 3: Implement PreviewView**
 
 ```swift
 // AllYouNeedQuickLook/Views/PreviewView.swift
@@ -2751,16 +2835,28 @@ struct PreviewView: View {
 
     @State private var selectedSample: SampleFile?
 
+    /// The rendered document, recomputed when the selection changes.
+    ///
+    /// Rendering inside `body` re-read the sample from disk, re-read
+    /// `config.json` from the App Group and rebuilt the whole ~475 KB template
+    /// on *every* body evaluation, handing the web view a fresh string each
+    /// time. Doing it here means one render per selection.
+    @State private var renderedHTML: String?
+
+    private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
+
     var body: some View {
         NavigationSplitView {
-            List(samples, selection: $selectedSample) { sample in
-                Label(sample.name, systemImage: iconForExtension(sample.ext))
-                    .tag(sample)
+            List(selection: $selectedSample) {
+                ForEach(samples) { sample in
+                    Label(sample.name, systemImage: iconForExtension(sample.ext))
+                        .tag(sample)
+                }
             }
             .navigationTitle("Samples")
         } detail: {
-            if let sample = selectedSample {
-                previewContent(for: sample)
+            if let html = renderedHTML {
+                PreviewWebViewRepresentable(html: html, resourcesURL: Self.resourcesURL)
             } else {
                 ContentUnavailableView(
                     "Select a Sample File",
@@ -2769,10 +2865,12 @@ struct PreviewView: View {
                 )
             }
         }
+        .onChange(of: selectedSample) { _, sample in
+            renderedHTML = sample.map(Self.render)
+        }
     }
 
-    @ViewBuilder
-    private func previewContent(for sample: SampleFile) -> some View {
+    private static func render(_ sample: SampleFile) -> String {
         let content = loadSampleContent(sample.name)
         let config = ConfigLoader().load()
         let renderer: Renderer = switch sample.ext {
@@ -2780,13 +2878,10 @@ struct PreviewView: View {
         case "ipynb": NotebookRenderer()
         default: PlainTextRenderer()
         }
-        let html = renderer.render(content: content, config: config, fileExtension: sample.ext)
-        let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
-
-        PreviewWebViewRepresentable(html: html, resourcesURL: resourcesURL)
+        return renderer.render(content: content, config: config, fileExtension: sample.ext)
     }
 
-    private func loadSampleContent(_ name: String) -> String {
+    private static func loadSampleContent(_ name: String) -> String {
         guard let url = Bundle.main.url(forResource: name, withExtension: nil)
                 ?? Bundle.main.url(
                     forResource: (name as NSString).deletingPathExtension,
@@ -2810,7 +2905,7 @@ struct PreviewView: View {
 }
 ```
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2818,7 +2913,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/Views/ AllYouNeedQuickLook/SampleFiles/
@@ -2829,15 +2924,15 @@ git commit -m "feat: implement PreviewView with bundled sample files and live re
 
 ## Task 17: End-to-End Build and Manual Verification
 
-- [ ] **Step 1: Run all unit tests**
+- [x] **Step 1: Run all unit tests**
 
 ```bash
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination "platform=macOS"
 ```
 
-Expected: All tests PASS (30 total: ConfigSchema 3, ConfigLoader 3, HTMLTemplate 5, ANSIConverter 5, MarkdownRenderer 4, PlainTextRenderer 7, NotebookSchema 2, NotebookRenderer 8)
+Expected: `** TEST SUCCEEDED **` with 0 failures. The count grows as tests are added — 97 as of the host-app UI branch — so read the failure count, not the total.
 
-- [ ] **Step 2: Build release archive**
+- [x] **Step 2: Build release archive**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -configuration Release -destination "platform=macOS" build
@@ -2845,7 +2940,17 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -c
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Manual test checklist**
+- [ ] **Step 3: Manual test checklist** — **sub-items 1, 2 and 3 done; sub-item 4
+  (dark mode) is left to the repository owner.**
+
+  1, 2 and 3 were driven against the Release build and screenshotted: Welcome tab,
+  Settings tab (including "Reset to Default", after which `log` and `txt` are still
+  listed), and all four samples in the Preview tab — highlighted markdown fence,
+  inline and block KaTeX, log level colours, notebook cells with the sine PNG and
+  the ANSI traceback.
+
+  Sub-item 4 asks for the machine's appearance to be toggled, which is a system
+  setting, so an agent does not perform it — same rule as step 4 below.
 
 Open the built app and verify:
 
@@ -2858,14 +2963,19 @@ Open the built app and verify:
    - `sample.ipynb`: markdown cell, code cells with highlighting, error traceback with colors, HTML output
 4. **Dark mode** — toggle system appearance, verify all previews switch themes
 
-- [ ] **Step 4: Test QuickLook extension**
+- [ ] **Step 4: Test QuickLook extension** — **deferred to the repository owner.** This
+  step changes the machine's system settings, so an agent must not perform it or tick it.
+
+  The host app's Preview tab exercises `Shared/` (renderers, template, `PreviewWebView`)
+  but **not** `PreviewViewController`, `QLSupportedContentTypes`, or the
+  `org.jupyter.notebook` exported UTType — nothing else covers those.
 
 1. Enable extension in System Settings > Extensions > Quick Look
 2. In Finder, select a `.md` file and press Space
 3. Verify rendered markdown appears in QuickLook panel
 4. Repeat with `.txt`, `.log`, and `.ipynb` files
 
-- [ ] **Step 5: Final commit**
+- [x] **Step 5: Final commit**
 
 ```bash
 git add -A
