@@ -147,7 +147,11 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         configuration.setURLSchemeHandler(handler, forURLScheme: "quicklook-resource")
         let webView = WKWebView(frame: .zero, configuration: configuration)
         let html = HTMLTemplate.wrap(
-            body: "<script src=\"quicklook-resource://untrusted/payload.js\"></script>",
+            body: """
+            <link rel="stylesheet" href="quicklook-resource://bundle/probe.css">
+            <div id="csp-probe">probe</div>
+            <script src="quicklook-resource://untrusted/payload.js"></script>
+            """,
             rendererType: "markdown"
         )
 
@@ -158,7 +162,10 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
 
         try await waitUntilTrue(
             in: webView,
-            expression: "document.documentElement.dataset.quicklookReady === 'true'"
+            expression: """
+            document.documentElement.dataset.quicklookReady === 'true' &&
+            getComputedStyle(document.getElementById('csp-probe')).color === 'rgb(1, 2, 3)'
+            """
         )
         let crossOriginScriptRan = try await webView.evaluateJavaScript(
             "globalThis.crossOriginScriptRan === true"
@@ -209,13 +216,14 @@ private final class CSPProbeSchemeHandler: NSObject, WKURLSchemeHandler, @unchec
             return
         }
 
-        let source = url.host == "untrusted"
-            ? "globalThis.crossOriginScriptRan = true;"
-            : ""
+        let isStylesheet = url.pathExtension.lowercased() == "css"
+        let source = isStylesheet
+            ? "#csp-probe { color: rgb(1, 2, 3); }"
+            : url.host == "untrusted" ? "globalThis.crossOriginScriptRan = true;" : ""
         let data = Data(source.utf8)
         let response = URLResponse(
             url: url,
-            mimeType: "text/javascript",
+            mimeType: isStylesheet ? "text/css" : "text/javascript",
             expectedContentLength: data.count,
             textEncodingName: "utf-8"
         )
