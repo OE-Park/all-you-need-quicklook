@@ -64,6 +64,7 @@ targets:
           NSExtensionAttributes:
             QLSupportedContentTypes:
               - public.plain-text
+              - com.apple.log
               - net.daringfireball.markdown
               - org.jupyter.notebook
         UTExportedTypeDeclarations:

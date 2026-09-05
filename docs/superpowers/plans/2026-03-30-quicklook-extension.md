@@ -3000,17 +3000,43 @@ Open the built app and verify:
    - `sample.ipynb`: markdown cell, code cells with highlighting, error traceback with colors, HTML output
 4. **Dark mode** — toggle system appearance, verify all previews switch themes
 
-- [ ] **Step 4: Test QuickLook extension** — **deferred to the repository owner.** This
-  step changes the machine's system settings, so an agent must not perform it or tick it.
+- [x] **Step 4: Test QuickLook extension** — run by the owner (enabling the extension)
+  together with an agent (building, installing, observing). It found two defects that
+  nothing else in this repo covers, which is the point of the step.
 
   The host app's Preview tab exercises `Shared/` (renderers, template, `PreviewWebView`)
   but **not** `PreviewViewController`, `QLSupportedContentTypes`, or the
-  `org.jupyter.notebook` exported UTType — nothing else covers those.
+  `org.jupyter.notebook` exported UTType.
 
 1. Enable extension in System Settings > Extensions > Quick Look
 2. In Finder, select a `.md` file and press Space
 3. Verify rendered markdown appears in QuickLook panel
 4. Repeat with `.txt`, `.log`, and `.ipynb` files
+
+**Result.** `.md`, `.ipynb` and `.log` render through the extension. `.txt` does not —
+see below. Two defects were found and fixed:
+
+- `QLSupportedContentTypes` was emitted at the top level of the extension's
+  `Info.plist`. QuickLook only reads it from `NSExtension > NSExtensionAttributes`, so
+  the appex declared no supported types, `quicklookd` never considered it for any file,
+  and it did not even log a rejection. Every file type fell back to the system preview.
+- Declaring only an ancestor type is not enough. `.log` files resolve to `com.apple.log`;
+  with just `public.plain-text` declared, the system's own text preview won. Declaring
+  `com.apple.log` explicitly makes the extension win.
+
+**`.txt` cannot currently be overridden.** Its type *is* `public.plain-text`, which we
+already declare — the system's built-in text preview declares the same type and takes
+precedence. That leaves the spec's "Text & Logs (.txt, .log, …)" claim only partly true
+in Finder: the host app's Preview tab renders `.txt` with the configured formatting, the
+QuickLook extension does not. Any other text-ish extension can be supported by adding
+its concrete UTType to `QLSupportedContentTypes`.
+
+**Two prerequisites that are not obvious.** The extension will not register unless the
+app bundle is actually code-signed — `CODE_SIGNING_ALLOWED: NO` leaves only the linker's
+ad-hoc signature, which PlugInKit ignores (`codesign -v` reports "code object is not
+signed at all"). And every build location that has been launched registers its own copy,
+so repeated builds fill the System Settings list with duplicates; unregister the stale
+ones with `lsregister -u <path>`.
 
 - [x] **Step 5: Final commit**
 

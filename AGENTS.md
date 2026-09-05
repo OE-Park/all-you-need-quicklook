@@ -18,14 +18,24 @@ shell, WelcomeView, SettingsView and PreviewView, plus two defect fixes in
 already-merged code — the CSP that never applied, and markdown code fences that
 were never highlighted.
 
-Task 17 is not finished. Step 3's manual checklist is done except sub-item 4,
-the dark-mode toggle, which changes a system setting and is therefore the
-owner's to run.
+Task 17 step 4 is done. The owner enabled the extension; `.md`, `.ipynb` and
+`.log` render through it in Finder. It found two defects, both fixed here:
+`QLSupportedContentTypes` sat at the top level of the extension's `Info.plist`
+instead of inside `NSExtension > NSExtensionAttributes` (so the appex declared
+no supported types at all), and `.log` needed its concrete `com.apple.log` type
+declared rather than only the `public.plain-text` ancestor.
 
-Task 17 step 4 (enable the extension in System Settings, press Space in Finder)
-is **deferred to the repository owner**: it changes system settings, so agents do
-not perform it. It is the only cover `PreviewViewController`,
-`QLSupportedContentTypes` and the `org.jupyter.notebook` UTType have.
+`.txt` still falls back to the system preview: its type *is* `public.plain-text`,
+which the built-in text preview also declares and wins. The Preview tab renders
+`.txt` correctly; the extension does not.
+
+Task 17 step 3's sub-item 4, the dark-mode toggle, remains the owner's to run.
+
+The extension does not register from an unsigned build — `CODE_SIGNING_ALLOWED:
+NO` leaves only a linker ad-hoc signature that PlugInKit ignores. Sign the
+framework, then the appex (with its entitlements), then the app. Also note that
+every launched build location registers its own copy, so the System Settings
+list accumulates duplicates; clear them with `lsregister -u <path>`.
 
 ## Hard rules
 
