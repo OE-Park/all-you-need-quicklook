@@ -10,9 +10,10 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-30-quicklook-extension-design.md`
 
-**Security Note — actual threat model:** A previewed file **can run script**. This is a
-deliberate, currently-accepted position, not an accident, and it is written down here so
-nobody re-derives it from the code.
+**Security Note — actual threat model:** A previewed file **cannot run script.** That is
+enforced rather than asserted: `script-src` names one fresh per-document nonce and nothing
+else. It is written down here so nobody re-derives it from the code — and because an
+earlier version of this note got the notebook path wrong (see below).
 
 What is true:
 
@@ -21,34 +22,70 @@ What is true:
   neutralises `</script` as well as the JavaScript literal it lands in. A previewed file
   therefore cannot end a script element and be parsed as document markup.
 - The CSP (`Shared/WebView/PreviewWebView.swift`) is `default-src 'none'` with
-  `script-src 'unsafe-inline'`, `style-src 'unsafe-inline'`, `img-src data: http: https:`,
-  `font-src data:`, `base-uri 'none'` and `form-action 'none'`. External JS, external CSS,
-  frames, `eval`, XHR/fetch/WebSocket (no `connect-src`) and form posts are all blocked.
+  `script-src 'nonce-<per-document random>'`, `style-src 'unsafe-inline'`,
+  `img-src data: http: https:`, `font-src data:`, `base-uri 'none'` and
+  `form-action 'none'`. External JS, external CSS, frames, `eval`, XHR/fetch/WebSocket
+  (no `connect-src`) and form posts are all blocked, and so is every inline script the
+  document did not come with.
+- The nonce is 16 bytes from `SecRandomCopyBytes`, base64-encoded.
+  `PreviewWebView.makeNonce()` mints one per document; the renderer stamps it on every
+  `<script>` it emits (three bundled libraries plus the renderer's own driver), and
+  `PreviewWebView.loadHTML(_:resourcesURL:nonce:)` arms the policy with the same value.
+  The injected `<meta>` is rebuilt on every load behind `removeAllUserScripts()`, so the
+  previous document's nonce dies with the previous document.
+- **The nonce has to live in the user script, not in the template.** WebKit ignores a
+  parser-inserted `<meta http-equiv="Content-Security-Policy">` entirely when a
+  DOM-inserted one is already present — and the user script's meta is DOM-inserted. A
+  policy written into `HTMLTemplate`'s HTML would be dead text. Two consequences: anyone
+  "simplifying" by moving the CSP into the template would silently ship the old policy,
+  and a previewed file that smuggles in its own `<meta>` CSP cannot affect the real one
+  either.
 - `WKNavigationDelegate` cancels every navigation except this view's own document load —
   script-initiated (`window.location`, meta refresh) included.
 
-What is **not** true, and is the reason a previewed file can run script:
+What is **not** true — the nonce makes payloads inert, it does not remove them:
 
 - **Markdown source is not sanitized.** `MarkdownRenderer` does
   `container.innerHTML = marked.parse(raw)`. marked has shipped no sanitizer since v5 and
   the bundled build is v15, so raw HTML in a `.md` file — `<img src=x onerror=…>`, an
-  inline event handler on anything — reaches the DOM as markup.
+  inline event handler on anything, a `javascript:` href, an `<iframe srcdoc>` — still
+  reaches the DOM as markup. None of it runs: inline handlers and `javascript:` URLs are
+  refused by the nonce policy, and a `srcdoc` child inherits the parent's CSP (worth
+  knowing: `default-src 'none'` does not stop a `srcdoc` frame from *loading* in this
+  WebKit, only from doing anything once loaded).
 - **Notebook `text/html` output is injected unescaped by design**
-  (`NotebookRenderer.renderMimeData`), matching Jupyter's own trust model.
-- `script-src 'unsafe-inline'` admits both of those, and inline `<script>` elements from
-  either path (an `innerHTML`-inserted `<script>` does not execute, but an inline event
-  handler does).
+  (`NotebookRenderer.renderMimeData`), matching Jupyter's own trust model. **Correcting
+  this note's previous claim:** that output is *parser-inserted document markup*, not
+  `innerHTML`, so a bare `<script>` element in a notebook output **did execute** before
+  the nonce — no event-handler trick needed. The notebook path was strictly worse than
+  the markdown path, not equivalent to it. The nonce is what closes it, and it is the
+  main reason the nonce was worth doing.
+- Attacker markup consequently still sits in the DOM: inert `<iframe>`s, dead
+  `javascript:` links, `<form>`s that cannot submit. A sanitizer (DOMPurify) would strip
+  them rather than neutralise them. It is not implemented; with the nonce in place it
+  would be defence in depth, not the fix.
 
-So the blast radius of a malicious preview is: **arbitrary script in an opaque-origin
-document with no `connect-src`, whose only outbound channel is `img-src http: https:`**
-(exfiltration by image URL). The QuickLook extension additionally holds
-`com.apple.security.network.client`, so that channel does reach the network. There is no
-access to the file system, to other origins, or to the host app's data.
+**Accepted regression.** Dropping `'unsafe-inline'` breaks the one notebook output form
+that used to work: a `text/html` output carrying a fully self-contained inline JavaScript
+bundle — `plotly.io.write_html(…, include_plotlyjs='inline')` and hand-rolled
+`<div><script>…</script></div>` visualisations. That is intended: it is exactly the
+capability the attack used, and there is no way to keep one without the other. CDN-backed
+outputs (plotly `include_plotlyjs='cdn'`, Bokeh, Vega/Altair, ipywidgets, `require.js`
+bootstraps) were already dead, because `script-src` has never named a host. So that this
+does not read as a rendering bug, `NotebookRenderer` emits a plain escaped-text notice —
+"This output contains an inline script, which this preview does not run." — after any
+`text/html` output containing `<script`. The notice is static markup written Swift-side
+reusing an existing CSS class; it adds no script and no style source.
 
-Closing this would take either sanitizing marked's output (e.g. DOMPurify) or moving
-`script-src` to a nonce so only the template's own scripts run. Neither is implemented:
-which one to take is a product decision the owner has not made yet. Do not "fix" this in
-passing — raise it.
+Residual blast radius: **no script at all from a previewed file**. The one outbound
+channel, `img-src http: https:`, is now reachable only by markup the file writes directly
+(an `<img src>` marked passes through), not by script, so it can leak *that the file was
+previewed, and when* — not the document's contents. The QuickLook extension holds
+`com.apple.security.network.client`, so that channel does reach the network. Removing
+`http:`/`https:` from `img-src` would close it outright, at the cost of remote images in
+Markdown and notebooks, which the spec allows deliberately ("Only external images allowed
+(with 3s timeout)"). That is a separate product decision the owner has not made. Do not
+"fix" it in passing — raise it.
 
 ---
 
@@ -61,7 +98,7 @@ passing — raise it.
 | `Shared/Models/ConfigSchema.swift` | Codable structs for JSON config (GlobalConfig, FileTypeConfig, AppConfig) |
 | `Shared/Models/NotebookSchema.swift` | Codable structs for .ipynb JSON (Notebook, Cell, Output, CellType) |
 | `Shared/Config/ConfigLoader.swift` | Read/write JSON config from App Group container, fallback to defaults |
-| `Shared/Renderers/RenderProtocol.swift` | `Renderer` protocol — `func render(content: String, config: AppConfig, fileExtension: String) -> String` |
+| `Shared/Renderers/RenderProtocol.swift` | `Renderer` protocol — `func render(content: String, config: AppConfig, fileExtension: String, nonce: String) -> String` (`nonce` is the document's CSP nonce; every emitted `<script>` must carry it) |
 | `Shared/Renderers/MarkdownRenderer.swift` | Markdown content → HTML (wraps in template, marked.js renders in browser) |
 | `Shared/Renderers/PlainTextRenderer.swift` | Plain text → HTML with config-based CSS, log level highlighting |
 | `Shared/Renderers/NotebookRenderer.swift` | ipynb JSON → HTML (parses cells, generates HTML for each output type) |

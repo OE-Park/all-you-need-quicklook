@@ -34,6 +34,10 @@ not perform it. It is the only cover `PreviewViewController`,
 - Escape user content before HTML injection, and through `ScriptEscaping` before
   any injection into an inline `<script>`. The plan's Security Note is the threat
   model; read it before touching a renderer or the CSP.
+- Every `<script>` a renderer or `HTMLTemplate` emits must carry the document's
+  nonce, and that same nonce must reach
+  `PreviewWebView.loadHTML(_:resourcesURL:nonce:)`. `script-src` names the nonce
+  and nothing else, so an unstamped script silently does not run.
 - Copilot cloud agent cannot run Xcode. CI on `macos-26` is the compiler.
 
 Web Copilot details: `.github/copilot-instructions.md`.
