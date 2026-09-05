@@ -56,6 +56,16 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.quicklook.preview
           NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).PreviewViewController"
+          # QuickLook only reads QLSupportedContentTypes from inside
+          # NSExtensionAttributes. At the top level of Info.plist it is
+          # ignored, the extension declares no supported types, and
+          # quicklookd never considers it for any file -- it does not even
+          # log a rejection. Verified in Finder on macOS 26.
+          NSExtensionAttributes:
+            QLSupportedContentTypes:
+              - public.plain-text
+              - net.daringfireball.markdown
+              - org.jupyter.notebook
         UTExportedTypeDeclarations:
           - UTTypeIdentifier: org.jupyter.notebook
             UTTypeDescription: Jupyter Notebook
@@ -64,10 +74,6 @@ targets:
             UTTypeTagSpecification:
               public.filename-extension:
                 - ipynb
-        QLSupportedContentTypes:
-          - public.plain-text
-          - net.daringfireball.markdown
-          - org.jupyter.notebook
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     entitlements:
