@@ -3,9 +3,17 @@ import Foundation
 
 public enum HTMLTemplate {
 
+    /// Composes a complete preview document.
+    ///
+    /// `nonce` must be the same `PreviewWebView.makeNonce()` value that is
+    /// passed to `PreviewWebView.loadHTML(_:resourcesURL:nonce:)` for this
+    /// document. `script-src` names that nonce and nothing else, so an
+    /// unstamped or mismatched `<script>` — including every one of the three
+    /// bundled libraries below — simply does not run.
     public static func wrap(
         body: String,
         rendererType: String,
+        nonce: String,
         customCSS: String = ""
     ) -> String {
         """
@@ -108,13 +116,13 @@ public enum HTMLTemplate {
         <style media="(prefers-color-scheme: dark)">
         \(highlightDarkCSS)
         </style>
-        <script>
+        <script nonce="\(nonce)">
         \(markedJS)
         </script>
-        <script>
+        <script nonce="\(nonce)">
         \(highlightJS)
         </script>
-        <script>
+        <script nonce="\(nonce)">
         \(katexJS)
         </script>
         </head>

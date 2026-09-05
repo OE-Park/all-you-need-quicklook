@@ -5,11 +5,11 @@ public final class MarkdownRenderer: Renderer {
 
     public init() {}
 
-    public func render(content: String, config: AppConfig, fileExtension: String) -> String {
+    public func render(content: String, config: AppConfig, fileExtension: String, nonce: String) -> String {
         let escapedContent = ScriptEscaping.forTemplateLiteral(content)
         let body = """
         <div id="markdown-content" class="markdown"></div>
-        <script>
+        <script nonce="\(nonce)">
         document.addEventListener('DOMContentLoaded', function() {
             var raw = `\(escapedContent)`;
             marked.setOptions({ gfm: true, breaks: false });
@@ -52,6 +52,6 @@ public final class MarkdownRenderer: Renderer {
         }
         </script>
         """
-        return HTMLTemplate.wrap(body: body, rendererType: "markdown")
+        return HTMLTemplate.wrap(body: body, rendererType: "markdown", nonce: nonce)
     }
 }

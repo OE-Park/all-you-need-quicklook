@@ -13,19 +13,21 @@ import WebKit
 @MainActor
 final class PreviewWebViewNavigationTests: XCTestCase {
 
+    private let nonce = PreviewWebView.makeNonce()
+
     private let resources = URL(fileURLWithPath: "/tmp/AllYouNeedQuickLook/Resources", isDirectory: true)
 
     // MARK: - The view's own load is allowed
 
     func testAllowsItsOwnLoadWithNoBaseURL() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil, nonce: nonce)
         await assertAllows(web, .other, URL(string: "about:blank"))
     }
 
     func testAllowsItsOwnLoadWithAFileBaseURL() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources, nonce: nonce)
         await assertAllows(web, .other, resources)
     }
 
@@ -33,7 +35,7 @@ final class PreviewWebViewNavigationTests: XCTestCase {
     /// string back byte-for-byte. A blank preview is the failure mode here.
     func testAllowsItsOwnLoadWhenTheBaseURLComesBackWithoutItsTrailingSlash() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources, nonce: nonce)
         await assertAllows(web, .other, URL(string: "file:///tmp/AllYouNeedQuickLook/Resources"))
     }
 
@@ -41,14 +43,14 @@ final class PreviewWebViewNavigationTests: XCTestCase {
 
     func testBlocksScriptInitiatedNavigationToHTTPS() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources, nonce: nonce)
         await assertAllows(web, .other, resources)  // the document loads,
         await assertCancels(web, .other, URL(string: "https://evil.example.com/"))  // and then cannot leave.
     }
 
     func testBlocksScriptInitiatedNavigationToHTTP() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil, nonce: nonce)
         await assertCancels(web, .other, URL(string: "http://evil.example.com/"))
     }
 
@@ -57,14 +59,14 @@ final class PreviewWebViewNavigationTests: XCTestCase {
     /// consumed by the load it was recorded for.
     func testBlocksASecondNavigationToTheBaseURL() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources, nonce: nonce)
         await assertAllows(web, .other, resources)
         await assertCancels(web, .other, resources)
     }
 
     func testBlocksNavigationToAnUnrelatedFileURL() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources, nonce: nonce)
         await assertCancels(web, .other, URL(fileURLWithPath: "/etc/passwd"))
     }
 
@@ -72,13 +74,13 @@ final class PreviewWebViewNavigationTests: XCTestCase {
 
     func testBlocksLinkActivation() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil, nonce: nonce)
         await assertCancels(web, .linkActivated, URL(string: "https://example.com/"))
     }
 
     func testBlocksFormSubmission() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil, nonce: nonce)
         await assertCancels(web, .formSubmitted, URL(string: "https://example.com/"))
     }
 
@@ -86,7 +88,7 @@ final class PreviewWebViewNavigationTests: XCTestCase {
     /// pending-load exemption.
     func testBlocksLinkActivationToTheBaseURL() async {
         let web = PreviewWebView()
-        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources)
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: resources, nonce: nonce)
         await assertCancels(web, .linkActivated, resources)
     }
 

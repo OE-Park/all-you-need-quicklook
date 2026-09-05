@@ -4,6 +4,7 @@ import Shared
 
 struct PreviewWebViewRepresentable: NSViewRepresentable {
     let html: String
+    let nonce: String
     let resourcesURL: URL?
 
     /// Remembers what the web view is already showing.
@@ -33,6 +34,6 @@ struct PreviewWebViewRepresentable: NSViewRepresentable {
         guard coordinator.loadedHTML != html || coordinator.loadedResourcesURL != resourcesURL else { return }
         coordinator.loadedHTML = html
         coordinator.loadedResourcesURL = resourcesURL
-        webView.loadHTML(html, resourcesURL: resourcesURL)
+        webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
     }
 }

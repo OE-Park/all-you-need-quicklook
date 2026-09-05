@@ -4,6 +4,8 @@ import XCTest
 
 final class ConfigLoaderTests: XCTestCase {
 
+    private let nonce = PreviewWebView.makeNonce()
+
     var tempDir: URL!
 
     override func setUp() {
@@ -59,7 +61,7 @@ final class ConfigLoaderTests: XCTestCase {
         let html = PlainTextRenderer().render(
             content: "ERROR boom\nWARN careful\nINFO fine\nDEBUG noise",
             config: loader.load(),
-            fileExtension: "log"
+            fileExtension: "log", nonce: nonce
         )
         XCTAssertTrue(html.contains("log-error"))
         XCTAssertTrue(html.contains("log-warn"))

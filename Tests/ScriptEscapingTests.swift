@@ -7,6 +7,8 @@ import XCTest
 /// the single helper both now share.
 final class ScriptEscapingTests: XCTestCase {
 
+    private let nonce = PreviewWebView.makeNonce()
+
     // MARK: - Template literal
 
     func testTemplateLiteralEscapesBackslashBacktickAndDollar() {
@@ -66,7 +68,7 @@ final class ScriptEscapingTests: XCTestCase {
         let html = PlainTextRenderer().render(
             content: "</script><img src=x onerror=alert(1)>",
             config: config,
-            fileExtension: "txt"
+            fileExtension: "txt", nonce: nonce
         )
         XCTAssertTrue(html.contains("<\\/script><img src=x onerror=alert(1)>"))
         XCTAssertFalse(html.contains("</script><img"), "the payload ended the script element")
@@ -77,7 +79,7 @@ final class ScriptEscapingTests: XCTestCase {
         config.fileTypes = [
             "txt": FileTypeConfig(syntaxHighlight: true, syntaxLanguage: "xml' });</script><img src=x>")
         ]
-        let html = PlainTextRenderer().render(content: "hello", config: config, fileExtension: "txt")
+        let html = PlainTextRenderer().render(content: "hello", config: config, fileExtension: "txt", nonce: nonce)
         XCTAssertTrue(html.contains("language: 'xml\\' });<\\/script><img src=x>'"))
         XCTAssertFalse(html.contains("</script><img"), "the language ended the script element")
         XCTAssertFalse(html.contains("class=\"language-xml' });</script>"),
@@ -88,7 +90,7 @@ final class ScriptEscapingTests: XCTestCase {
         let html = MarkdownRenderer().render(
             content: "</script><img src=x onerror=alert(1)>",
             config: AppConfig(),
-            fileExtension: "md"
+            fileExtension: "md", nonce: nonce
         )
         XCTAssertTrue(html.contains("<\\/script><img src=x onerror=alert(1)>"))
         XCTAssertFalse(html.contains("</script><img"))

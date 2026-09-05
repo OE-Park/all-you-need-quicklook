@@ -25,7 +25,15 @@ struct PreviewView: View {
     /// `config.json` from the App Group and rebuilt the whole ~475 KB template
     /// on *every* body evaluation, handing the web view a fresh string each
     /// time. Doing it here means one render per selection.
-    @State private var renderedHTML: String?
+    @State private var rendered: RenderedSample?
+
+    /// A composed document and the nonce it was composed with. The two are
+    /// inseparable: `PreviewWebView` arms `script-src` with this nonce, so a
+    /// document paired with any other one renders blank.
+    struct RenderedSample: Equatable {
+        let html: String
+        let nonce: String
+    }
 
     private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
 
@@ -39,8 +47,10 @@ struct PreviewView: View {
             }
             .navigationTitle("Samples")
         } detail: {
-            if let html = renderedHTML {
-                PreviewWebViewRepresentable(html: html, resourcesURL: Self.resourcesURL)
+            if let rendered {
+                PreviewWebViewRepresentable(
+                    html: rendered.html, nonce: rendered.nonce, resourcesURL: Self.resourcesURL
+                )
             } else {
                 ContentUnavailableView(
                     "Select a Sample File",
@@ -50,11 +60,11 @@ struct PreviewView: View {
             }
         }
         .onChange(of: selectedSample) { _, sample in
-            renderedHTML = sample.map(Self.render)
+            rendered = sample.map(Self.render)
         }
     }
 
-    private static func render(_ sample: SampleFile) -> String {
+    private static func render(_ sample: SampleFile) -> RenderedSample {
         let content = loadSampleContent(sample.name)
         let config = ConfigLoader().load()
         let renderer: Renderer = switch sample.ext {
@@ -62,7 +72,13 @@ struct PreviewView: View {
         case "ipynb": NotebookRenderer()
         default: PlainTextRenderer()
         }
-        return renderer.render(content: content, config: config, fileExtension: sample.ext)
+        let nonce = PreviewWebView.makeNonce()
+        return RenderedSample(
+            html: renderer.render(
+                content: content, config: config, fileExtension: sample.ext, nonce: nonce
+            ),
+            nonce: nonce
+        )
     }
 
     private static func loadSampleContent(_ name: String) -> String {

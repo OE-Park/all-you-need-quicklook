@@ -1,18 +1,56 @@
 // Shared/WebView/PreviewWebView.swift
+import Foundation
+import Security
 import WebKit
 
 public final class PreviewWebView: WKWebView {
 
-    /// Content Security Policy applied to every preview document.
+    /// A fresh, unguessable nonce for one preview document.
     ///
-    /// The policy is deliberately inline-only for script and style: the preview
-    /// is handed to WebKit through `loadHTMLString(_:baseURL:)`, whose document
-    /// gets an opaque origin and cannot load *any* subresource from the file://
-    /// `baseURL` — not with `'self'`, not with a `file:` source. `HTMLTemplate`
-    /// therefore inlines the bundled libraries (marked.js, highlight.js, KaTeX)
-    /// directly into the document, and this policy admits exactly that while
-    /// still refusing third-party script, style, frames and everything else that
-    /// `default-src 'none'` covers.
+    /// `SecRandomCopyBytes` rather than `UUID()`: it is the platform's
+    /// documented cryptographic RNG, whereas `UUID()`'s randomness is an
+    /// implementation detail and it spends six of its 128 bits on version and
+    /// variant tags. 16 bytes is the length OWASP recommends for a CSP nonce.
+    ///
+    /// Base64 is chosen for the encoding because its alphabet
+    /// (`A-Za-z0-9+/=`) sits inside CSP's `base64-value` grammar *and* inside
+    /// what both an HTML attribute value and a JavaScript double-quoted string
+    /// literal accept unescaped — so the value can be interpolated into
+    /// `contentSecurityPolicy(nonce:)`, into `cspUserScriptSource(nonce:)`'s JS
+    /// string and into `HTMLTemplate.wrap`'s `<script nonce="…">` with no
+    /// escaping step that could later be forgotten.
+    public nonisolated static func makeNonce() -> String {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        let status = bytes.withUnsafeMutableBytes { buffer -> Int32 in
+            guard let base = buffer.baseAddress else { return errSecParam }
+            return SecRandomCopyBytes(kSecRandomDefault, buffer.count, base)
+        }
+        if status != errSecSuccess {
+            // Never degrade to a constant. A predictable nonce is worse than
+            // `'unsafe-inline'`, because the policy would still read as strict.
+            var rng = SystemRandomNumberGenerator()
+            bytes = (0..<bytes.count).map { _ in UInt8.random(in: .min ... .max, using: &rng) }
+        }
+        return Data(bytes).base64EncodedString()
+    }
+
+    /// Content Security Policy applied to one preview document.
+    ///
+    /// The policy is deliberately inline-only for style, and nonce-only for
+    /// script: the preview is handed to WebKit through
+    /// `loadHTMLString(_:baseURL:)`, whose document gets an opaque origin and
+    /// cannot load *any* subresource from the file:// `baseURL` — not with
+    /// `'self'`, not with a `file:` source. `HTMLTemplate` therefore inlines
+    /// the bundled libraries (marked.js, highlight.js, KaTeX) directly into the
+    /// document, and this policy admits exactly those `<script>` elements —
+    /// the ones stamped with this load's nonce — while refusing every other
+    /// inline script, every inline event handler, every `javascript:` URL, and
+    /// third-party script, style, frames and the rest that `default-src 'none'`
+    /// covers.
+    ///
+    /// `script-src` names *only* the nonce. No `'unsafe-inline'` (a nonce would
+    /// be ignored in its presence by CSP2-era parsers and, more to the point,
+    /// it is the thing being removed), no `'strict-dynamic'`, no host.
     ///
     /// `img-src` keeps http/https because remote images in Markdown and notebook
     /// output are a deliberate, spec-required allowance; `font-src data:` keeps
@@ -28,12 +66,14 @@ public final class PreviewWebView: WKWebView {
     /// the attacker's favour.
     ///
     /// Must contain no `"` or `\` — it is interpolated into a JS string literal
-    /// by `cspUserScriptSource`.
-    public nonisolated static let contentSecurityPolicy =
-        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+    /// by `cspUserScriptSource(nonce:)`. `makeNonce()`'s base64 output holds
+    /// that invariant for the one part of the string that varies.
+    public nonisolated static func contentSecurityPolicy(nonce: String) -> String {
+        "default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline'; "
         + "img-src data: http: https:; font-src data:; base-uri 'none'; form-action 'none';"
+    }
 
-    /// Installs `contentSecurityPolicy` as a `<meta http-equiv>` before the
+    /// Installs `contentSecurityPolicy(nonce:)` as a `<meta http-equiv>` before the
     /// document's own markup is parsed.
     ///
     /// At `.atDocumentStart` for a `loadHTMLString` load, `document.head` is
@@ -43,12 +83,12 @@ public final class PreviewWebView: WKWebView {
     /// is created when it is missing instead of being dereferenced on faith.
     /// `PreviewWebViewLiveTests` asserts the meta really lands in a loaded
     /// document; this comment is not the guarantee, that test is.
-    nonisolated static var cspUserScriptSource: String {
+    nonisolated static func cspUserScriptSource(nonce: String) -> String {
         """
         (function() {
             var meta = document.createElement('meta');
             meta.httpEquiv = 'Content-Security-Policy';
-            meta.content = "\(contentSecurityPolicy)";
+            meta.content = "\(contentSecurityPolicy(nonce: nonce))";
             var root = document.documentElement;
             if (!root) {
                 root = document.createElement('html');
@@ -66,25 +106,62 @@ public final class PreviewWebView: WKWebView {
 
     private let imageTimeoutSeconds: TimeInterval
 
+    /// The user content controller this view's policy is installed into.
+    ///
+    /// Held directly rather than reached through `configuration`, which
+    /// `WKWebView` hands back as a copy: rotating the policy has to hit the
+    /// object the web view is actually consulting, and this is the one that
+    /// was handed to `super.init`.
+    private let contentController: WKUserContentController
+
+    /// The nonce the most recent `loadHTML(_:resourcesURL:nonce:)` installed.
+    ///
+    /// Exposed so a test can prove two loads got different values; nothing in
+    /// the app reads it.
+    public private(set) var installedNonce: String
+
     public init(frame: CGRect = .zero, imageTimeoutSeconds: TimeInterval = 3) {
         self.imageTimeoutSeconds = imageTimeoutSeconds
 
         let config = WKWebViewConfiguration()
         config.preferences.setValue(false, forKey: "allowFileAccessFromFileURLs")
 
+        // A policy is installed before any load, not only in `loadHTML`, so a
+        // document reaching this view through `WKWebView`'s own loading API
+        // still gets one — one whose nonce no document can be carrying.
+        let nonce = Self.makeNonce()
+        self.installedNonce = nonce
+
         let contentController = WKUserContentController()
-        let cspScript = WKUserScript(
-            source: Self.cspUserScriptSource,
+        self.contentController = contentController
+        contentController.addUserScript(WKUserScript(
+            source: Self.cspUserScriptSource(nonce: nonce),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
-        )
-        contentController.addUserScript(cspScript)
+        ))
         config.userContentController = contentController
 
         super.init(frame: frame, configuration: config)
 
         self.navigationDelegate = self
         self.setValue(false, forKey: "drawsBackground")
+    }
+
+    /// Replaces the installed policy with one naming `nonce` and nothing else.
+    ///
+    /// `removeAllUserScripts()` first: user scripts accumulate, and a second
+    /// `<meta>` carrying the *previous* load's nonce would keep that nonce live
+    /// for this document — CSP composes policies as an intersection, but two
+    /// nonce policies would each admit their own document's scripts, so the
+    /// stale one has to go rather than be joined.
+    private func installCSPUserScript(nonce: String) {
+        contentController.removeAllUserScripts()
+        contentController.addUserScript(WKUserScript(
+            source: Self.cspUserScriptSource(nonce: nonce),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
+        installedNonce = nonce
     }
 
     @available(*, unavailable)
@@ -100,7 +177,18 @@ public final class PreviewWebView: WKWebView {
     /// lets `decidePolicyFor` tell the two apart.
     private var pendingLoadBaseURL: URL?
 
-    public func loadHTML(_ html: String, resourcesURL: URL?) {
+    /// Loads `html`, first arming the policy with the same `nonce` the document
+    /// stamped on its own `<script>` elements.
+    ///
+    /// The nonce must be a fresh `makeNonce()` value per document. It cannot be
+    /// generated here and handed back, because the document is composed —
+    /// nonce and all — before the web view ever sees it; and it cannot live in
+    /// the template alone, because WebKit ignores a parser-inserted meta CSP
+    /// when a DOM-inserted one is already present, which is exactly what
+    /// `cspUserScriptSource(nonce:)` creates. The user script's policy is the
+    /// only policy the document actually gets.
+    public func loadHTML(_ html: String, resourcesURL: URL?, nonce: String) {
+        installCSPUserScript(nonce: nonce)
         pendingLoadBaseURL = resourcesURL
         if let baseURL = resourcesURL {
             loadHTMLString(html, baseURL: baseURL)

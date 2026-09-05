@@ -6,13 +6,18 @@ import XCTest
 ///
 /// The policy and `HTMLTemplate` are one contract: the template inlines every
 /// bundled library because the policy names no script or style source other
-/// than `'unsafe-inline'`, and the policy can stay that narrow because the
-/// template inlines them. Either half drifting silently breaks previews or
-/// silently unblocks third-party code, so both halves are asserted here.
+/// than this document's nonce and `'unsafe-inline'` style, and the policy can
+/// stay that narrow because the template inlines them and stamps the nonce.
+/// Either half drifting silently breaks previews or silently unblocks
+/// third-party code, so both halves are asserted here.
 final class PreviewWebViewCSPTests: XCTestCase {
 
+    private let nonce = PreviewWebView.makeNonce()
+
+    private var policy: String { PreviewWebView.contentSecurityPolicy(nonce: nonce) }
+
     private func directive(_ name: String) throws -> [String] {
-        let policy = PreviewWebView.contentSecurityPolicy
+        let policy = self.policy
         let clause = try XCTUnwrap(
             policy.split(separator: ";")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -22,10 +27,35 @@ final class PreviewWebViewCSPTests: XCTestCase {
         return clause.split(separator: " ").dropFirst().map(String.init)
     }
 
+    // MARK: - The nonce itself
+
+    /// A nonce that repeats across documents is no better than
+    /// `'unsafe-inline'` for the notebook `text/html` path, whose markup is
+    /// parser-inserted and could simply carry the known value.
+    func testEveryNonceIsDifferent() {
+        let nonces = (0..<64).map { _ in PreviewWebView.makeNonce() }
+        XCTAssertEqual(Set(nonces).count, nonces.count, "makeNonce() repeated a value")
+    }
+
+    /// 16 random bytes, base64. The alphabet matters as much as the entropy:
+    /// it is what lets the value be interpolated into the policy string, the
+    /// injection script's JS string literal and a `<script nonce="…">`
+    /// attribute with no escaping anywhere.
+    func testNonceIsBase64OfSixteenBytes() {
+        for _ in 0..<64 {
+            let nonce = PreviewWebView.makeNonce()
+            XCTAssertEqual(nonce.count, 24, "expected base64 of 16 bytes: \(nonce)")
+            let allowed = CharacterSet(charactersIn:
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+            XCTAssertTrue(allowed.isSuperset(of: CharacterSet(charactersIn: nonce)),
+                          "nonce is not base64: \(nonce)")
+        }
+    }
+
     // MARK: - Admits the bundled subresources
 
-    func testPolicyAdmitsInlinedBundledScripts() throws {
-        XCTAssertTrue(try directive("script-src").contains("'unsafe-inline'"),
+    func testPolicyAdmitsInlinedBundledScriptsByNonce() throws {
+        XCTAssertTrue(try directive("script-src").contains("'nonce-\(nonce)'"),
                       "bundled marked.js/highlight.js/KaTeX are inlined and would not run")
     }
 
@@ -37,13 +67,18 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     /// Every subresource form the template emits must be one the policy admits.
     func testPolicyAdmitsEverySubresourceFormTheTemplateEmits() throws {
-        let html = HTMLTemplate.wrap(body: "", rendererType: "markdown")
+        let html = HTMLTemplate.wrap(body: "", rendererType: "markdown", nonce: nonce)
         let scriptSrc = try directive("script-src")
         let styleSrc = try directive("style-src")
 
-        // Inline forms — admitted by 'unsafe-inline'.
-        XCTAssertTrue(html.contains("<script>"))
-        XCTAssertTrue(scriptSrc.contains("'unsafe-inline'"))
+        // Inline script — admitted only by this document's nonce, which the
+        // template must therefore stamp on every `<script>` it writes.
+        XCTAssertFalse(html.contains("<script>"),
+                       "an unstamped <script> would be refused by script-src")
+        XCTAssertTrue(html.contains("<script nonce=\"\(nonce)\">"))
+        XCTAssertTrue(scriptSrc.contains("'nonce-\(nonce)'"))
+
+        // Inline style — admitted by 'unsafe-inline'.
         XCTAssertTrue(html.contains("<style>"))
         XCTAssertTrue(styleSrc.contains("'unsafe-inline'"))
 
@@ -57,13 +92,32 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     // MARK: - Still blocks third-party resources
 
-    /// Pinned as exact allow-lists rather than a deny-list of shapes: a
+    /// `script-src` is pinned by *shape* rather than by an exact string,
+    /// because its one source now varies per load. The shape is the whole
+    /// point: exactly one source, and that source a nonce. `'unsafe-inline'`
+    /// alongside a nonce would not merely be redundant — CSP2 parsers ignore
+    /// the nonce when it is present, so re-adding it silently restores every
+    /// inline script. `'strict-dynamic'` would let the nonced libraries inject
+    /// further scripts of their own choosing.
+    func testPolicyAllowsExactlyOneScriptSourceAndItIsANonce() throws {
+        let scriptSrc = try directive("script-src")
+        XCTAssertEqual(scriptSrc.count, 1, "script-src names more than the nonce: \(scriptSrc)")
+        let source = try XCTUnwrap(scriptSrc.first)
+        XCTAssertTrue(source.hasPrefix("'nonce-"), "script-src source is not a nonce: \(source)")
+        XCTAssertTrue(source.hasSuffix("'"))
+        XCTAssertEqual(source, "'nonce-\(nonce)'")
+        XCTAssertFalse(scriptSrc.contains("'unsafe-inline'"))
+        XCTAssertFalse(scriptSrc.contains("'unsafe-eval'"))
+        XCTAssertFalse(scriptSrc.contains("'strict-dynamic'"))
+        XCTAssertFalse(scriptSrc.contains("'self'"))
+    }
+
+    /// Pinned as an exact allow-list rather than a deny-list of shapes: a
     /// deny-list has to anticipate every form a third-party source can take
     /// (`cdn.example.com`, `//evil.com`, `*.example.com`, `data:`,
     /// `'strict-dynamic'`, …) and misses the bare-host form anyone is most
     /// likely to actually write. Anything added here now fails the test.
-    func testPolicyAllowsExactlyTheInlineScriptAndStyleSources() throws {
-        XCTAssertEqual(try directive("script-src"), ["'unsafe-inline'"])
+    func testPolicyAllowsExactlyTheInlineStyleSource() throws {
         XCTAssertEqual(try directive("style-src"), ["'unsafe-inline'"],
                        "style-src names a source nothing in this project emits")
     }
@@ -71,7 +125,6 @@ final class PreviewWebViewCSPTests: XCTestCase {
     func testPolicyBlocksFramesAndEverythingElseByDefault() throws {
         XCTAssertEqual(try directive("default-src"), ["'none'"],
                        "default-src must stay 'none' so iframes and the rest are blocked")
-        let policy = PreviewWebView.contentSecurityPolicy
         XCTAssertFalse(policy.contains("frame-src"), "no frame-src may override default-src 'none'")
         XCTAssertFalse(policy.contains("child-src"), "no child-src may override default-src 'none'")
     }
@@ -92,6 +145,15 @@ final class PreviewWebViewCSPTests: XCTestCase {
         XCTAssertEqual(try directive("font-src"), ["data:"])
     }
 
+    /// Nothing but `script-src` changed when the nonce arrived.
+    func testOnlyScriptSrcVariesWithTheNonce() {
+        let a = PreviewWebView.contentSecurityPolicy(nonce: "AAAA")
+        let b = PreviewWebView.contentSecurityPolicy(nonce: "BBBB")
+        XCTAssertEqual(a.replacingOccurrences(of: "'nonce-AAAA'", with: "X"),
+                       b.replacingOccurrences(of: "'nonce-BBBB'", with: "X"),
+                       "the nonce is not the only part of the policy that varies")
+    }
+
     // MARK: - Injection
 
     // Whether the policy is actually installed in a loaded document, and
@@ -102,9 +164,11 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     /// The policy is interpolated into a JS double-quoted string literal.
     func testPolicyIsSafeToEmbedInAJavaScriptStringLiteral() {
-        let policy = PreviewWebView.contentSecurityPolicy
-        XCTAssertFalse(policy.contains("\""))
-        XCTAssertFalse(policy.contains("\\"))
-        XCTAssertFalse(policy.contains("\n"))
+        for _ in 0..<64 {
+            let policy = PreviewWebView.contentSecurityPolicy(nonce: PreviewWebView.makeNonce())
+            XCTAssertFalse(policy.contains("\""))
+            XCTAssertFalse(policy.contains("\\"))
+            XCTAssertFalse(policy.contains("\n"))
+        }
     }
 }

@@ -11,8 +11,12 @@ import Foundation
 /// - The `<script>` *element* must not be terminable either. Escaping the
 ///   literal does nothing about that: the HTML tokenizer runs before the JS
 ///   parser, so a literal `</script` in the payload ends the element and
-///   everything after it is parsed as markup — which
-///   `script-src 'unsafe-inline'` then happily executes.
+///   everything after it is parsed as document markup. `script-src 'nonce-…'`
+///   keeps that markup from *running* — an injected `<script>` has no nonce and
+///   an inline handler is refused outright — but it does not put the element
+///   back together: the rest of the renderer's own script is lost with it, so
+///   the preview breaks. The escape is what keeps the document intact; the
+///   nonce is what keeps the debris inert.
 ///
 /// Both renderers used to carry their own copy of this and only one of them
 /// neutralised `</script`, which is exactly the divergence this type exists to

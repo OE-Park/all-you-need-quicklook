@@ -42,7 +42,13 @@ class PreviewViewController: NSViewController, QLPreviewingController {
             PlainTextRenderer()
         }
 
-        let html = renderer.render(content: content, config: config, fileExtension: fileExtension)
+        // One nonce per document, generated here and handed to both halves:
+        // the renderer stamps it on the `<script>` elements it emits, and the
+        // web view arms `script-src 'nonce-…'` with the same value.
+        let nonce = PreviewWebView.makeNonce()
+        let html = renderer.render(
+            content: content, config: config, fileExtension: fileExtension, nonce: nonce
+        )
 
         let resourcesURL = Bundle(for: PreviewWebView.self).resourceURL
             ?? Bundle(for: Self.self).resourceURL
@@ -50,7 +56,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
 
         await MainActor.run {
             _ = self.view
-            webView.loadHTML(html, resourcesURL: resourcesURL)
+            webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
         }
     }
 }
