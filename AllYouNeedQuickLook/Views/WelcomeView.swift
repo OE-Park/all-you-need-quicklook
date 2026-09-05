@@ -14,15 +14,22 @@ struct WelcomeView: View {
             VStack(spacing: 8) {
                 Text("All You Need QuickLook")
                     .font(.largeTitle.bold())
-                Text("Preview Markdown, text files, and Jupyter Notebooks in Finder.")
+                Text("Preview Markdown, logs, and Jupyter Notebooks in Finder.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 16) {
                 Label("Markdown (.md) — rendered with syntax highlighting and math", systemImage: "doc.richtext")
-                Label("Text & Logs (.txt, .log, ...) — configurable formatting", systemImage: "doc.text")
+                Label("Logs (.log) — configurable formatting", systemImage: "doc.text")
                 Label("Jupyter Notebooks (.ipynb) — full cell rendering", systemImage: "terminal")
+
+                // `.txt` resolves to public.plain-text, the same type macOS's own
+                // text preview declares -- and the built-in one wins. The Preview
+                // tab in this app still renders .txt with the configured settings.
+                Text("Plain .txt files keep the built-in macOS preview. Use the Preview tab to see them with your settings applied.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .font(.body)
             .padding(.horizontal, 40)

@@ -39,6 +39,13 @@ targets:
         com.apple.security.app-sandbox: true
         com.apple.security.application-groups:
           - group.com.yohanpark.AllYouNeedQuickLook
+    postBuildScripts:
+      # Runs after the extension has been embedded, so it can sign the whole
+      # bundle inside-out. See scripts/adhoc-sign.sh for why Xcode cannot do
+      # this itself.
+      - script: "\"$SRCROOT/scripts/adhoc-sign.sh\""
+        name: Ad-hoc sign bundle
+        basedOnDependencyAnalysis: false
 
   QuickLookExtension:
     type: app-extension

@@ -3038,6 +3038,18 @@ signed at all"). And every build location that has been launched registers its o
 so repeated builds fill the System Settings list with duplicates; unregister the stale
 ones with `lsregister -u <path>`.
 
+The signing prerequisite is now handled by the build. `scripts/adhoc-sign.sh` runs as a
+post-build phase on the app target and signs inside-out: framework, appex (with its
+entitlements), app. Turning Xcode's own signing back on was tried first and does not
+work — with the App Group entitlement present the build system demands a provisioning
+profile ("requires a provisioning profile. Enable development signing..."), which would
+bind the project to one developer's team. `codesign` raises no such objection to an
+ad-hoc signature carrying those entitlements. Verified: a plain `xcodebuild` of the
+Release configuration now produces a bundle whose extension registers on its own, with
+`pluginkit` showing it enabled and no manual signing step. This unblocks the spec's
+Phase 1 unsigned GitHub Release — before the fix, a downloaded build would never have
+registered.
+
 - [x] **Step 5: Final commit**
 
 ```bash

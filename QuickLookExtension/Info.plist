@@ -25,17 +25,21 @@
 	</dict>
 	<key>NSExtension</key>
 	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<key>QLSupportedContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>com.apple.log</string>
+				<string>net.daringfireball.markdown</string>
+				<string>org.jupyter.notebook</string>
+			</array>
+		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.quicklook.preview</string>
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).PreviewViewController</string>
 	</dict>
-	<key>QLSupportedContentTypes</key>
-	<array>
-		<string>public.plain-text</string>
-		<string>net.daringfireball.markdown</string>
-		<string>org.jupyter.notebook</string>
-	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>

@@ -31,11 +31,13 @@ which the built-in text preview also declares and wins. The Preview tab renders
 
 Task 17 step 3's sub-item 4, the dark-mode toggle, remains the owner's to run.
 
-The extension does not register from an unsigned build — `CODE_SIGNING_ALLOWED:
-NO` leaves only a linker ad-hoc signature that PlugInKit ignores. Sign the
-framework, then the appex (with its entitlements), then the app. Also note that
-every launched build location registers its own copy, so the System Settings
-list accumulates duplicates; clear them with `lsregister -u <path>`.
+PlugInKit ignores an unsigned bundle, so `scripts/adhoc-sign.sh` runs as a
+post-build phase and ad-hoc signs the framework, then the appex (with its
+entitlements), then the app. Do not try to move this back into Xcode's own
+signing: the App Group entitlement makes the build system demand a provisioning
+profile, which `codesign` itself does not. Note also that every launched build
+location registers its own copy, so the System Settings list accumulates
+duplicates; clear them with `lsregister -u <path>`.
 
 ## Hard rules
 
