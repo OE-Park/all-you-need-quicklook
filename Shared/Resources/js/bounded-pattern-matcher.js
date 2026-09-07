@@ -123,25 +123,27 @@
         const work = budgets.get(budget);
         if (!work) return { status: 'rejected', reason: 'invalid-budget' };
         if (!Array.isArray(groups)) return { status: 'rejected', reason: 'invalid-groups' };
-        const events = [];                                // {pos, delta, key}
-        for (const group of groups) {
-            if (!group || typeof group !== 'object' || !Array.isArray(group.matches)) {
-                return { status: 'rejected', reason: 'invalid-groups' };
-            }
-            const level = group.kind === 'level' ? group.level : null;
-            if (group.kind !== 'general' && !(group.kind === 'level' && RANK[level])) {
-                return { status: 'rejected', reason: 'invalid-groups' };
-            }
-            for (const m of group.matches) {
-                if (!m || !Number.isInteger(m.start) || !Number.isInteger(m.end) || m.end <= m.start) {
-                    return { status: 'rejected', reason: 'invalid-groups' };
-                }
-                events.push({ pos: m.start, delta: 1, key: level || 'general' },
-                            { pos: m.end, delta: -1, key: level || 'general' });
-            }
-        }
         const take = stepper(work);
         try {
+            const events = [];                            // {pos, delta, key}
+            for (const group of groups) {
+                take();                                    // charged for examining this group,
+                if (!group || typeof group !== 'object' || !Array.isArray(group.matches)) {
+                    return { status: 'rejected', reason: 'invalid-groups' };
+                }
+                const level = group.kind === 'level' ? group.level : null;
+                if (group.kind !== 'general' && !(group.kind === 'level' && RANK[level])) {
+                    return { status: 'rejected', reason: 'invalid-groups' };
+                }
+                for (const m of group.matches) {
+                    take();                                // and for examining each of its matches,
+                    if (!m || !Number.isInteger(m.start) || !Number.isInteger(m.end) || m.end <= m.start) {
+                        return { status: 'rejected', reason: 'invalid-groups' };
+                    }
+                    events.push({ pos: m.start, delta: 1, key: level || 'general' },
+                                { pos: m.end, delta: -1, key: level || 'general' });
+                }                                          // before any event allocation.
+            }
             const active = { general: 0, error: 0, warn: 0, info: 0, debug: 0 };
             const segments = [];
             function emit(start, end) {                    // covered slice between two events

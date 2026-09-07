@@ -263,14 +263,31 @@ final class BoundedPatternMatcherTests: XCTestCase {
     }
 
     func testMalformedGroupsAreRejected() throws {
+        // Each malformed shape gets its own budget so the reported step counts describe
+        // exactly what that one call charged, not an accumulation across the four calls.
         let value = context.evaluateScript("""
         (() => {
-          const m = BoundedPatternMatcher, b = m.createBudget();
-          return { notArray: m.resolveRun(null, b).reason,
-                   badKind: m.resolveRun([{ kind: 'other', matches: [] }], b).reason,
-                   badLevel: m.resolveRun([{ kind: 'level', level: 'nope', matches: [] }], b).reason,
-                   badPair: m.resolveRun([{ kind: 'general', matches: [{ start: 3, end: 1 }] }], b).reason,
-                   badBudget: m.resolveRun([], {}).reason, steps: b.steps };
+          const m = BoundedPatternMatcher;
+          const notArrayBudget = m.createBudget();
+          const notArray = m.resolveRun(null, notArrayBudget).reason;
+          const stepsAfterNotArray = notArrayBudget.steps;
+
+          const badBudget = m.resolveRun([], {}).reason;
+
+          const badKindBudget = m.createBudget();
+          const badKind = m.resolveRun([{ kind: 'other', matches: [] }], badKindBudget).reason;
+          const stepsAfterBadKind = badKindBudget.steps;
+
+          const badLevelBudget = m.createBudget();
+          const badLevel = m.resolveRun([{ kind: 'level', level: 'nope', matches: [] }], badLevelBudget).reason;
+          const stepsAfterBadLevel = badLevelBudget.steps;
+
+          const badPairBudget = m.createBudget();
+          const badPair = m.resolveRun([{ kind: 'general', matches: [{ start: 3, end: 1 }] }], badPairBudget).reason;
+          const stepsAfterBadPair = badPairBudget.steps;
+
+          return { notArray, badKind, badLevel, badPair, badBudget,
+                   stepsAfterNotArray, stepsAfterBadKind, stepsAfterBadLevel, stepsAfterBadPair };
         })()
         """)
         XCTAssertNil(context.exception)
@@ -278,6 +295,41 @@ final class BoundedPatternMatcherTests: XCTestCase {
             XCTAssertEqual(value?.forProperty(key)?.toString(), "invalid-groups", key)
         }
         XCTAssertEqual(value?.forProperty("badBudget")?.toString(), "invalid-budget")
-        XCTAssertEqual(value?.forProperty("steps")?.toInt32(), 0)
+        // These two return before any group is examined, so they charge nothing.
+        XCTAssertEqual(value?.forProperty("stepsAfterNotArray")?.toInt32(), 0)
+        // These three walk into the metered validation loop: one `take()` per group
+        // examined, plus one per match examined before that match is rejected.
+        XCTAssertEqual(value?.forProperty("stepsAfterBadKind")?.toInt32(), 1, "one group, no matches")
+        XCTAssertEqual(value?.forProperty("stepsAfterBadLevel")?.toInt32(), 1, "one group, no matches")
+        XCTAssertEqual(value?.forProperty("stepsAfterBadPair")?.toInt32(), 2, "one group plus its one match")
+    }
+
+    func testExhaustedBudgetSkipsValidationOnWellFormedGroups() throws {
+        let handle = try budget(["steps": 0])
+        let result = try resolve([general([[0, 4]])], handle)
+        XCTAssertEqual(result.forProperty("status")?.toString(), "incomplete")
+        XCTAssertEqual(result.forProperty("reason")?.toString(), "step-budget")
+    }
+
+    func testStepBudgetIsSharedAcrossFindMatchesAndResolveRun() throws {
+        let handle = try budget()
+        let matched = try find("a", "aaa", handle)
+        let stepsAfterFind = Int(handle.forProperty("steps")?.toInt32() ?? 0)
+        XCTAssertGreaterThan(stepsAfterFind, 0)
+        let resolved = try resolve([general(try intervals(matched))], handle)
+        XCTAssertEqual(resolved.forProperty("status")?.toString(), "resolved")
+        let stepsAfterResolve = Int(handle.forProperty("steps")?.toInt32() ?? 0)
+        XCTAssertGreaterThan(stepsAfterResolve, stepsAfterFind)
+    }
+
+    func testBudgetExhaustedByFindMatchesStopsResolveRunToo() throws {
+        let handle = try budget(["steps": 5000])
+        let text = String(repeating: "a", count: 16_001) + "!"
+        let findResult = try find("(a+)+$", text, handle)
+        XCTAssertEqual(findResult.forProperty("status")?.toString(), "incomplete")
+        XCTAssertEqual(findResult.forProperty("reason")?.toString(), "step-budget")
+        let result = try resolve([general([[0, 1]])], handle)
+        XCTAssertEqual(result.forProperty("status")?.toString(), "incomplete")
+        XCTAssertEqual(result.forProperty("reason")?.toString(), "step-budget")
     }
 }
