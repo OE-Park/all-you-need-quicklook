@@ -37,11 +37,13 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 Continuation starts at [HANDOFF.md](docs/superpowers/HANDOFF.md), which records
 the current checkpoint, next task, verification scope and cross-service prompt.
 
-Current work: bounded pattern compiler foundation on `feat/render-time-features`.
-The restricted parser/NFA compiler is implemented as a static resource, tested
-through JavaScriptCore, and not yet connected to preview rendering or Settings.
-See the [compiler plan and validation](docs/superpowers/plans/2026-09-07-bounded-pattern-compiler.md).
-The production matcher, DOM pass and UI integration remain unimplemented. Read the
+Current work: bounded pattern compiler and metered matcher on
+`feat/render-time-features`, HEAD `f88828c`. The restricted parser, NFA compiler,
+metered Thompson matcher and run resolver are implemented as a static resource,
+tested through JavaScriptCore (143 tests, 0 failures on macOS 26.6.2/Xcode 26.6/
+arm64), and not yet connected to preview rendering or Settings. See the
+[handoff](docs/superpowers/HANDOFF.md) for current state and the next task. The
+DOM pass and UI integration remain unimplemented. Read the
 [design](docs/superpowers/specs/2026-09-06-render-time-features-design.md) and
 [review prompt](docs/superpowers/reviews/2026-09-06-render-time-features-review-prompt.md).
 

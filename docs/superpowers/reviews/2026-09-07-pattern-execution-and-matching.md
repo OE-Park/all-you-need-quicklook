@@ -2,9 +2,10 @@
 
 Date: 2026-09-07
 Status: bounded-regex direction accepted by user continuation; engine architecture selected; production implementation pending
-Current implementation: restricted parser and NFA compiler only; see the
-[compiler plan and validation](../plans/2026-09-07-bounded-pattern-compiler.md).
-Runtime matching and renderer/Settings integration remain pending. The experiment
+Current implementation: restricted parser, NFA compiler, metered matcher and run
+resolver; see the [compiler plan and validation](../plans/2026-09-07-bounded-pattern-compiler.md)
+and the [matcher plan and validation](../plans/2026-09-07-metered-pattern-matcher.md).
+Renderer and Settings integration remain pending. The experiment
 and candidate evaluation below describe the earlier feasibility step.
 Scope: findings 1 and 3 of the [local design review](2026-09-06-render-time-features-codex-review.md), plus their necessary DOM, settings, and count dependencies.
 Baseline: `feat/render-time-features`, HEAD `dc9bf1bbf59c48fe67ae7a2236ec9df22c29a2fe`, with pre-existing uncommitted documentation changes preserved.
