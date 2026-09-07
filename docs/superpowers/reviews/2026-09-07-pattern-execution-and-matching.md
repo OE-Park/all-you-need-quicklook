@@ -101,9 +101,9 @@ cannot be raised or disabled by config.json.
 | Compile work | 100,000 metered steps per document | Stop compiling remaining patterns and report incomplete processing |
 | DOM discovery | 20,000 visited nodes, including elements and excluded nodes encountered | Stop discovery and report incomplete processing |
 | A logical run | 16,384 UTF-16 units | Skip the run intact; do not split it into false independent matches |
-| Text inspected for matching | 262,144 UTF-16 units per document | Finish only work admitted under this budget; stop at a run boundary |
-| Matching work | 2,000,000 metered steps per document | Discard unfinished run results, stop remaining matching |
-| Match intervals / generated wrappers | 2,000 / 4,000 per document | Discard unfinished run results, preserve already completed runs |
+| Text inspected for matching | 262,144 UTF-16 units per document | Finish only work admitted under this budget; stop at a run boundary. **Open decision:** `findMatches` currently charges this per (run, pattern) call, not once per document text — see HANDOFF.md § Measured budget behaviors. |
+| Matching work | 2,000,000 metered steps per document | Discard unfinished run results, stop remaining matching. **Open decision:** measured worst case is O(n²·m), not the O(mn) cited above — see HANDOFF.md § Measured budget behaviors. |
+| Match intervals / generated wrappers | 2,000 / 4,000 per document | Discard unfinished run results, preserve already completed runs. **Open decision:** the 2,000 interval cap is reachable by one ordinary large run, not only adversarial input — see HANDOFF.md § Measured budget behaviors. |
 
 Check counters before work or allocation. A whole-tree `querySelectorAll`, full
 unbounded `textContent` concatenation, oversized regex parse, or unlimited match

@@ -83,6 +83,50 @@ rendering pass. DOM discovery, allocation and wrapper application must still
 honor their own shared budgets. Existing renderer log matching still uses its
 old implementation until a separately tested integration task replaces it.
 
+## Measured budget behaviors the integration plan must settle
+
+Three behaviors of the shipped matcher/resolver were measured by the final
+whole-branch review and are not yet decided policy. The binding contract's
+table rows are annotated with a short marker pointing here; this is the
+detail. Settle all three before or during the run-extraction-and-DOM-mapping
+plan, because the first one may change `findMatches`'s signature.
+
+- **Text budget is charged per pattern-scan, not per run.** `findMatches`
+  charges `text.length` on every call, and the caller must call it once per
+  (run, pattern) — once per level pattern and once per general pattern over
+  the same run text. Effective document coverage is therefore
+  `262,144 / patternCount`, not 262,144 characters of document text as the
+  contract's table row reads. Measured: five patterns run over one
+  1,000-character run charge `text = 5000` on the shared budget. Driving the
+  four bundled default log patterns over ordinary log lines covers
+  **65,478 characters** of actual log text before the budget stops; with the
+  design's full complement of 32 general patterns plus the 4 fixed level
+  patterns (36 scans per run), it falls to roughly 7.3 KB. Resolving this may
+  mean changing `findMatches` to take all of a run's programs in one call and
+  charge `text` once — a signature change, not a cap change.
+- **The 2,000 match-interval cap is per document, not per run.** A single
+  crafted run — `"ERROR "` repeated 2,730 times — exhausts the interval
+  budget by itself, discarding that run's matches and stopping all further
+  matching in the document. A legitimate log file with 3,000+ ERROR lines
+  hits the same wall with no adversarial input at all.
+- **Worst-case matching is O(n²·m), not the O(mn) the contract cites.**
+  Thread-seeding stops once a candidate match exists, and the scan resumes at
+  the match end only after potentially running to end-of-run first, so a
+  user-authored pattern of the shape `a[a]*b|a` over 16,384 `a` characters
+  consumes the *entire* 2,000,000-step document budget on that one run. It
+  stays fully metered the whole time — degraded emphasis for that run, never
+  a hang — and the four bundled default patterns remain linear at roughly 12
+  steps per character. Exhausting the full step budget on that adversarial
+  input took about 37 ms in Node.
+
+These were run by the reviewer in Node as read-only probes against the
+checked-in resource, not as checked-in XCTest cases. The differential fuzz
+run in the same review (14,702 pattern/text pairs over literals, classes,
+negated classes, `.`, alternation, grouping and quantifiers, plus 8,924 pairs
+adding `^`, `$`, `\b`, `\B`, all diffed against a reference leftmost-longest
+matcher, 0 mismatches) is likewise not a checked-in test — record that
+distinction if a future task cites it as coverage.
+
 ## Next task
 
 Write a focused TDD implementation plan for the **run extraction and DOM

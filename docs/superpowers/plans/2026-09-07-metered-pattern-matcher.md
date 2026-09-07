@@ -55,7 +55,7 @@ findMatches(program, text, budget)
 //     reason: 'invalid-budget' | 'invalid-text' | 'invalid-program'
 ```
 
-- [ ] **Step 1: Write the failing tests before the resource exists.**
+- [x] **Step 1: Write the failing tests before the resource exists.**
 
 Create `Tests/BoundedPatternMatcherTests.swift`. Load both actual bundled resources with `Bundle(for: ConfigLoader.self)`; a missing resource must fail an assertion, not silently skip. Never interpolate pattern or input text into evaluated JavaScript source — pass them as `JSValue` arguments.
 
@@ -257,7 +257,7 @@ Write these cases in the same file:
     }
 ```
 
-- [ ] **Step 2: Regenerate and observe RED.**
+- [x] **Step 2: Regenerate and observe RED.**
 
 ```sh
 cd /Users/yohanpark/DevTools/all-you-need-quicklook/.worktrees/feat-render-time-features
@@ -269,7 +269,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Expected: setup fails on every case because `bounded-pattern-matcher.js` is not bundled. This must be an assertion failure, not a Swift compilation error — fix compilation errors before continuing.
 
-- [ ] **Step 3: Implement the resource.**
+- [x] **Step 3: Implement the resource.**
 
 Create `Shared/Resources/js/bounded-pattern-matcher.js`. Structure and metering rules:
 
@@ -410,7 +410,7 @@ Rules the implementation must not break:
 - Positions are only ever scalar boundaries: advance by `widthAt`, and return `start`/`end` as UTF-16 indices.
 - No result object carries partial matches: `incomplete` has no `matches` property.
 
-- [ ] **Step 4: Run the focused tests GREEN.**
+- [x] **Step 4: Run the focused tests GREEN.**
 
 ```sh
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination 'platform=macOS' \
@@ -420,7 +420,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Expected: all `BoundedPatternMatcherTests` cases pass. Record the count.
 
-- [ ] **Step 5: Run mutations that must fail, then restore.**
+- [x] **Step 5: Run mutations that must fail, then restore.**
 
 Apply each mutation alone, rerun the focused tests, record the failing test names and log path, then restore the file and confirm it is byte-identical to the pre-mutation copy (`cp` it aside first, `diff` after).
 
@@ -429,7 +429,7 @@ Apply each mutation alone, rerun the focused tests, record the failing test name
 3. Resume scanning at `best.start + 1` instead of `best.end` → `testMatchesAreNonOverlappingAndResumeAtTheMatchEnd` must fail.
 4. Return `{ status: 'incomplete', reason: e.reason, matches }` from the catch → `testStepBudgetExhaustionDiscardsTheWholeRun` and `testIntervalLimitDiscardsTheRunItOverflows` must fail.
 
-- [ ] **Step 6: Run the full suite and the host build.**
+- [x] **Step 6: Run the full suite and the host build.**
 
 ```sh
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination 'platform=macOS' \
@@ -440,7 +440,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: the 118 existing tests plus the new matcher cases, 0 failures; host app and embedded extension build with ad-hoc signing. Report actual counts and any Swift warning. No rendering changed, so claim no Finder or visual verification.
 
-- [ ] **Step 7: Record evidence and commit.**
+- [x] **Step 7: Record evidence and commit.**
 
 Fill this plan's Evidence section with real log paths, counts, exit codes and the mutation results. Then:
 
@@ -479,7 +479,7 @@ resolveRun(groups, budget)
 // { status: 'rejected', reason: 'invalid-budget' | 'invalid-groups' }
 ```
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
 
 Add these helpers and cases to the existing `BoundedPatternMatcherTests` class.
 XCTestCase classes cannot share private helpers and this repository has no shared
@@ -579,7 +579,7 @@ instead of duplicating them:
     }
 ```
 
-- [ ] **Step 2: Run the focused tests to observe RED.**
+- [x] **Step 2: Run the focused tests to observe RED.**
 
 ```sh
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination 'platform=macOS' \
@@ -589,7 +589,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Expected: only the new resolution cases fail, because `resolveRun` is not a function on `BoundedPatternMatcher`; every Task 1 case still passes.
 
-- [ ] **Step 3: Implement `resolveRun` in the same resource.**
+- [x] **Step 3: Implement `resolveRun` in the same resource.**
 
 ```javascript
     const RANK = { error: 4, warn: 3, info: 2, debug: 1 };
@@ -656,7 +656,7 @@ Expected: only the new resolution cases fail, because `resolveRun` is not a func
 
 Hoist `emit` above the sweep loop (function declarations hoist, but write it before use for readability), and export it: `Object.freeze({ createBudget, findMatches, resolveRun })`. Validation runs before any metered work, so a rejected call charges nothing.
 
-- [ ] **Step 4: Run the focused tests GREEN.**
+- [x] **Step 4: Run the focused tests GREEN.**
 
 ```sh
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination 'platform=macOS' \
@@ -664,7 +664,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
   2>&1 | tee /private/tmp/aynql-resolve-green.log
 ```
 
-- [ ] **Step 5: Run mutations that must fail, then restore.**
+- [x] **Step 5: Run mutations that must fail, then restore.**
 
 1. Drop the `RANK[name] > RANK[level]` comparison and take the first active level → `testLevelPrecedenceIsErrorWarnInfoDebugPerCoveredInterval` must fail.
 2. Push a segment before the `work.segments >= work.segmentsLimit` check → `testSegmentLimitDiscardsTheRunAtomically` must fail.
@@ -672,11 +672,11 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 Restore and `diff` against the saved copy after each.
 
-- [ ] **Step 6: Run the full suite and the host build.**
+- [x] **Step 6: Run the full suite and the host build.**
 
 Same two commands as Task 1 Step 6. Report actual totals and warnings.
 
-- [ ] **Step 7: Record evidence and commit.**
+- [x] **Step 7: Record evidence and commit.**
 
 ```bash
 git add Shared/Resources/js/bounded-pattern-matcher.js Tests/BoundedPatternMatcherTests.swift \
@@ -693,15 +693,15 @@ git commit -m "feat: resolve bounded pattern matches into non-overlapping segmen
 - Modify: `AGENTS.md` (Status section)
 - Modify: `docs/superpowers/reviews/2026-09-07-pattern-execution-and-matching.md` (status line only)
 
-- [ ] **Step 1: Rewrite the handoff's implemented-versus-pending table and next task.**
+- [x] **Step 1: Rewrite the handoff's implemented-versus-pending table and next task.**
 
 Move "Production matcher" and interval resolution to implemented, with the exact API block above. State plainly what is still absent: logical-line and prose-run extraction, protected-subtree boundaries, DOM offset mapping and node splitting, the skip notice, `PatternHighlighter` wiring, HTMLTemplate loading of the resource, Settings validation through the same parser, and log level counts. The next task becomes the run extraction and DOM mapping pass, which needs its own TDD plan.
 
-- [ ] **Step 2: Update `AGENTS.md` "Current work" to name the matcher commit and its evidence, keeping every other Status paragraph intact.**
+- [x] **Step 2: Update `AGENTS.md` "Current work" to name the matcher commit and its evidence, keeping every other Status paragraph intact.**
 
-- [ ] **Step 3: Update the pattern contract's `Current implementation:` line** to say the parser, compiler, matcher and resolver exist and that renderer/Settings integration remains pending. Change nothing else in that document.
+- [x] **Step 3: Update the pattern contract's `Current implementation:` line** to say the parser, compiler, matcher and resolver exist and that renderer/Settings integration remains pending. Change nothing else in that document.
 
-- [ ] **Step 4: Verify the record against the tree, then commit.**
+- [x] **Step 4: Verify the record against the tree, then commit.**
 
 ```bash
 git diff --check
@@ -750,4 +750,56 @@ Fill in during execution. Record for each task: command, log path, exit code, te
   - Not run / not claimed: no Finder integration check, no visual/WKWebView verification — this task renders nothing and touches no Swift production source.
   - Self-review finding (non-blocking, code-quality only): the `RANK[name] > RANK[level]` comparison in `emit` and the check-then-push ordering around `work.segments` are both currently redundant given the surrounding structure (see mutations 1 and 2 above). Left as specified in the brief's Step 3 code rather than restructured, since the brief instructs transcribing that block verbatim and both are harmless (correct output, no perf concern at this scale) rather than defects.
   - **Fix round 1** (post-review, DONE): the review found `resolveRun`'s validation/event-construction loop ran to completion with zero `take()` calls, allocating two event objects per match before the stepper was even created — a violation of "charge metered work before allocation, never after" for an entry point whose input size is not self-bounded by any earlier cap. Fixed by creating `const take = stepper(work)` right after the two free (`invalid-budget`/non-array-`groups`) checks, moving the whole validation loop inside the existing `try`, and calling `take()` once per group examined and once per match examined, before that group's/match's own malformed-input check — so an already-exhausted budget now returns `incomplete`/`step-budget` before the malformed-groups report, even when the input is also malformed. Also added a case for one budget handle shared across `findMatches` then `resolveRun` (steps continue rising, and an exhaustion by `findMatches` propagates into the following `resolveRun` call), which the original review flagged as untested. See `Tests/BoundedPatternMatcherTests.swift`'s `testExhaustedBudgetSkipsValidationOnWellFormedGroups`, `testStepBudgetIsSharedAcrossFindMatchesAndResolveRun`, `testBudgetExhaustedByFindMatchesStopsResolveRunToo`, and the amended `testMalformedGroupsAreRejected` (now uses one budget per malformed shape and asserts the exact charge each incurs: 0 for the two free rejections, 1 for `badKind`/`badLevel` — one group, no matches — 2 for `badPair` — one group plus its one rejected match). Full detail, commands and logs in the fix report at `.superpowers/sdd/2026-09-07-metered-pattern-matcher/task-2-report.md`.
-- Task 3: _pending_
+- Task 3 (Update the continuation record): DONE. Committed as `c4d5659`
+  ("docs: record the metered matcher checkpoint") on top of Task 2's fix
+  round 1 (`f88828c`). No code, test, or `project.yml` file touched.
+  - `docs/superpowers/HANDOFF.md`: rewrote the implemented-versus-pending
+    table to move `findMatches`/`resolveRun` into implemented rows with the
+    published API block (`createBudget`, `findMatches`, `resolveRun` and
+    their status/reason shapes), updated the validation row to 143 XCTest
+    cases (118 baseline incl. 11 compiler cases; 25 in
+    `BoundedPatternMatcherTests`), and replaced the single "not implemented"
+    line with named absent pieces: logical-line/prose-run extraction,
+    protected-subtree boundaries, DOM offset mapping/node splitting and the
+    20,000-node discovery budget; wrapper application, the skip notice,
+    `PatternHighlighter`; `HTMLTemplate` loading of either resource; Settings
+    validation through the same parser and log-level metadata counts;
+    gutter/metadata header/themes/notebook fallback. Rewrote "Next task" to
+    point at the run-extraction-and-DOM-mapping plan and listed the deferred
+    minor findings from both matcher task reviews for that plan to triage.
+  - `AGENTS.md`: replaced only the "Current work" paragraph in Status to name
+    the matcher commit set and the verified 143/0 test count, pointing at
+    `HANDOFF.md` for detail rather than restating it; every other Status
+    paragraph left byte-identical (confirmed via `git diff AGENTS.md` showing
+    one hunk).
+  - `docs/superpowers/reviews/2026-09-07-pattern-execution-and-matching.md`:
+    changed only the `Current implementation:` line to say the parser,
+    compiler, matcher and resolver exist and that renderer/Settings
+    integration remains pending, adding a link to this matcher plan
+    alongside the existing compiler-plan link; nothing else in that document
+    touched (confirmed via `git diff` showing one 3-line-in/3-line-out hunk).
+  - Not run / not claimed: no build or test command was re-run for this
+    task — it is a documentation-only commit describing work already proven
+    green in Tasks 1 and 2; no Finder, visual, or live `WKWebView`
+    verification, because nothing rendered changed.
+- Final fix wave (post-review, this pass, HEAD before this work was
+  `c4d5659`): fixed four code defects found by the final whole-branch review,
+  each with a RED test against the pre-fix resource and a GREEN test after:
+  `createBudget(null)`/`createBudget(5)` now throw `RangeError` instead of a
+  raw `TypeError` or (for a number) silently succeeding; a non-`Exhausted`
+  throw inside `findMatches` or `resolveRun` now returns
+  `{ status: 'rejected', reason: 'internal-error' }` instead of escaping as a
+  raw JS exception (documented in new API comment blocks above both
+  functions); `RANK[level]` truthiness in `resolveRun`'s group validation no
+  longer accepts inherited `Object.prototype` names (`toString`,
+  `__proto__`) via `Object.hasOwn(RANK, level)`; `resolveRun` now rejects a
+  negative `start` offset as `invalid-groups`. Added a one-line comment
+  naming the descending-scan-order invariant that makes the
+  `RANK[name] > RANK[level]` comparison in `emit` dead code, without
+  restructuring it, per the review's explicit deferral. Five new test cases
+  in `Tests/BoundedPatternMatcherTests.swift`; full RED/GREEN evidence,
+  commands and logs in the fix report at
+  `.superpowers/sdd/2026-09-07-metered-pattern-matcher/final-fix-report.md`.
+  Full suite after this pass: 148 tests, 0 failures (143 pre-existing + 5
+  new). Host app and embedded extension build succeeded, ad-hoc signed; only
+  warning is the pre-existing `appintentsmetadataprocessor` notice.
