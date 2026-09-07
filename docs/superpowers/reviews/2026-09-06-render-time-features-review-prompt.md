@@ -1,5 +1,10 @@
 # External review prompt — render-time preview features
 
+> Historical design-review prompt (2026-09-06). The restricted compiler has since
+> been implemented. For current continuation instructions and resolved/open
+> findings, start at [HANDOFF.md](../HANDOFF.md). Do not treat the original
+> pre-implementation assumptions below as today's repository state.
+
 Paste the block below into GitHub Copilot or Codex. It is written to be used
 verbatim; the only thing that changes between tools is the entry note at the top.
 
@@ -9,10 +14,12 @@ verbatim; the only thing that changes between tools is the entry note at the top
 > source and reason about it; do not attempt to build.
 
 **Entry note for Codex (local, macOS):**
-> Working directory is the `feat/render-time-features` worktree. You can run
+> Working directory is `.worktrees/feat-render-time-features` under the repository.
+> Confirm branch `feat/render-time-features`, HEAD, dirty files and this worktree's
+> `AGENTS.md` before reviewing. You can run
 > `xcodegen generate` and `xcodebuild ... -scheme Tests`. Building is optional —
-> the current tests pass and prove nothing about this design, which is not yet
-> implemented.
+> existing tests do not validate this design, which is not yet implemented.
+> Do not report a current passing result unless you actually ran the tests.
 
 ---
 

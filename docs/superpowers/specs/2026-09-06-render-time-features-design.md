@@ -1,7 +1,15 @@
 # Render-time preview features — design
 
 **Date:** 2026-09-06
-**Status:** approved, awaiting implementation plan
+**Status:** under revision after design review; not implementation-ready
+**Pattern revision (2026-09-07):** the bounded-regex direction is accepted and
+uses a project-owned metered NFA. The [pattern contract](../reviews/2026-09-07-pattern-execution-and-matching.md)
+is authoritative for grammar, budgets, matching units and failure behavior.
+Its prototype proves selected mechanisms, not production implementation. Other
+review findings remain open.
+The parser/NFA compiler foundation is now implemented and verified under the
+[compiler plan](../plans/2026-09-07-bounded-pattern-compiler.md); matching, DOM and
+Settings integration remain pending. This does not close the other review findings.
 **Depends on:** `feat/host-app-ui` (PR #8) — the nonce, `ScriptEscaping`, and the
 inlined library template all come from there.
 
@@ -24,10 +32,10 @@ the document is handed to the panel.
 `.log`, `.txt`.
 
 **Out:** new content types. Highlighting `.py`, `.swift`, `.rs` and friends in
-Finder would require declaring each concrete UTType in `QLSupportedContentTypes`
-(parent-UTI matching is not supported), and each declaration competes with the
-system's own text preview. That is a separate decision with its own risks, and
-it is deliberately not taken here.
+Finder is outside this design. In the recorded `.log` check, declaring the
+`public.plain-text` ancestor did not select this extension; declaring `com.apple.log`
+did. Any new declaration needs a routing check against the system preview. That
+is a separate decision with its own risks, and it is deliberately not taken here.
 
 **Out:** per-pattern colors and user-defined log levels. `logLevelPatterns` keeps
 its four fixed levels. The new pattern feature applies one emphasis style to a
@@ -47,7 +55,7 @@ Some of this already exists, partly.
 ### Three defects this design repairs
 
 1. **`NotebookRenderer` still calls `marked.setOptions({highlight: …})`.** marked
-   removed that option in v5 and the bundled build is v15, so the call is
+   removed that option in v8 and the bundled build is v15, so the call is
    silently ignored and code fences inside notebook markdown cells are not
    highlighted. This is the same defect already fixed in `MarkdownRenderer`; it
    has a second habitat.
@@ -82,19 +90,21 @@ nice-to-have.
 
 ## Architecture
 
-Five new units under `Shared/Renderers/`. All are pure functions over strings,
-so the existing string-level test style reaches them.
+Five composition units under `Shared/Renderers/`, with a separate static bounded
+pattern engine resource. String tests cover composition only; the pattern compiler,
+VM and DOM mapping need the behavioral checks in the pattern contract.
 
 | Unit | Responsibility | Depends on |
 |---|---|---|
 | `MetaHeader` | Compute per-type metrics, emit the `<header>` | nothing but content and config |
 | `LineNumbers` | Gutter markup (Swift) and the code-block gutter pass (JS) | nothing |
-| `PatternHighlighter` | Emit the JS text-node pass for `logLevelPatterns` and `highlightPatterns` | `ScriptEscaping` |
+| `PatternHighlighter` | Compose the bounded logical-run matcher and text-node application pass | `ScriptEscaping`, shared metered engine |
 | `SyntaxLanguage` | Decide the language for a block | `NotebookSchema` |
 | `ThemeCatalog` | List bundled themes, return the selected light/dark CSS pair | resources |
 
 **Boundary rule:** a renderer composes these and does not reach inside them.
-Each takes strings and returns strings.
+Composition emits strings; the runtime matcher additionally owns bounded state
+and returns match intervals, count completeness and skip reasons.
 
 Modified: `ConfigSchema`, `NotebookSchema`, `HTMLTemplate`, the three renderers,
 `SettingsView`, `default-config.json`.
@@ -110,7 +120,7 @@ paths differ; with both gone the branch collapses to one path.
 ```swift
 syntaxTheme: String         = "github"   // global only
 showMetaHeader: Bool        = true
-highlightPatterns: [String] = []          // regexes, one emphasis style
+highlightPatterns: [String] = []          // bounded regex subset, one emphasis style
 ```
 
 `FileTypeConfig` gains `showMetaHeader: Bool?` and `highlightPatterns: [String]?`.
@@ -156,7 +166,8 @@ and carries no fixed widths.
 **`PlainTextRenderer`** — one path now.
 
 Header items are chosen by config shape, not by hardcoding an extension: when
-`resolved.logLevelPatterns` is present, emit line count plus per-level counts;
+`resolved.logLevelPatterns` is present, emit line count plus per-level count slots
+filled by the bounded JS matcher (unavailable when incomplete);
 otherwise line, word and character counts.
 
 Highlighting: when `syntaxHighlight` is set, use `syntaxLanguage` if given and
@@ -212,24 +223,26 @@ Highlighting rewrites `<code>` and cannot touch it.
   `pre code`'s `textContent` and builds the same markup. It runs after
   highlighting and only prepends a sibling.
 
-## Pattern emphasis: text nodes only
+## Pattern emphasis: bounded logical runs
 
-The current `applyLogPatterns` runs in Swift on plain text and is safe only
-because it runs on the path where no highlighting happens. Applying a regex to
-already-highlighted HTML would match inside tag attributes and corrupt the
-markup. Coexisting with highlighting makes the text-node restriction mandatory.
+Use the [2026-09-07 pattern contract](../reviews/2026-09-07-pattern-execution-and-matching.md).
+User patterns are compiled by one bounded parser and run through one metered NFA;
+never pass them to native JavaScript RegExp or NSRegularExpression. This includes
+Settings validation and metadata level counts. Existing custom pattern strings
+remain stored when unsupported; skipping them must not trigger a config reset.
 
-- Walk with `TreeWalker(NodeFilter.SHOW_TEXT)`, skipping any node with an
-  ancestor matching `.gutter`, `.meta-header`, `script`, or `style`.
-- Replace a matched text node with a fragment. Never assign `innerHTML` on a
-  parent — that is what would destroy the highlighting.
-- Patterns reach JS as a JSON literal through `ScriptEscaping`, never by string
-  concatenation.
-- Each pattern is compiled in its own `try`/`catch`. One malformed regex in
-  `config.json` must not stop the others.
-- The regex dialect changes from ICU (`NSRegularExpression`) to JavaScript
-  `RegExp`. The four default log patterns are valid in both. Documented for
-  users who wrote their own.
+Code/log/preformatted output is matched one logical line at a time. Prose uses
+structural paragraph/heading/table-cell/inline-run boundaries. Concatenate eligible
+DOM text across inline formatting and hljs spans, match the logical run, and map
+UTF-16 intervals back onto the original text nodes. Preserve element ancestry and
+source text. Do not match each text node independently or regex generated HTML.
+
+The contract fixes grammar, leftmost-longest semantics, Unicode handling, overlap
+priority, all compile/scan/DOM limits, atomic per-run application and skip notices.
+Skip math, non-HTML namespaces, gutters, metadata and other protected subtrees;
+they form boundaries, not gaps to concatenate across. Partial scans must not
+publish exact full-file log counts. All app-controlled scripts retain the same
+fresh document nonce and JSON data retains script-boundary protection.
 
 ## Themes
 
@@ -249,11 +262,12 @@ falls back to `github`.
 `SettingsView` gains a theme picker, a metadata-header toggle, and an editor for
 the pattern list.
 
-Patterns are validated on entry with `NSRegularExpression` and an invalid one is
-rejected with an inline message rather than saved. This is a convenience, not the
-safety mechanism: ICU accepts expressions JavaScript rejects, and `config.json`
-can be edited outside the app, so the per-pattern `try`/`catch` in the JS pass
-remains the actual guarantee.
+Patterns are validated by the same bounded parser/compiler used in previews.
+Use the same static JS source in a native JSCore validation adapter; no separate
+ICU acceptance rule. Unsupported grammar or exceeded limits produce an inline
+reason and are not accepted as new edits. Previously saved unsupported patterns
+remain visible and preserved until the user edits or removes them. Runtime checks
+remain mandatory for externally edited config and apply to log patterns too.
 
 ## Testing
 
@@ -272,7 +286,9 @@ Live `WKWebView`, the class of test that caught the CSP hole:
 - Gutter line count equals source line count
 - After the pattern pass, `<code>` still contains `hljs-` classes — the evidence
   that emphasis did not destroy highlighting
-- One invalid regex does not prevent the remaining patterns from applying
+- One invalid/unsupported pattern does not prevent valid siblings from applying
+- Exact cross-node match ranges, work-counter exhaustion, atomic per-run skipping,
+  namespace preservation and count completeness, as specified in the pattern contract
 - Each fix is reverted to confirm a test goes red
 
 A green suite is not evidence that a preview renders. This project has twice had
@@ -285,7 +301,8 @@ only by running the real thing. Finder plus spacebar remains the final check;
 | Condition | Behavior |
 |---|---|
 | Unknown theme name | Fall back to the default |
-| Invalid regex in config | Skip that pattern, apply the rest |
+| Invalid or unsupported regex in config | Preserve saved text, skip that pattern, show a reason; continue valid siblings |
+| Pattern processing budget exhausted | Stop unfinished work without partial-run markup; show skip notice and no exact incomplete totals |
 | Notebook without `language_info` | `highlightAuto` |
 | `showMetaHeader` false | Emit no header element at all |
 | Config missing new keys | Decode successfully with defaults |
