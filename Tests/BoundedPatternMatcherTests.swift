@@ -311,6 +311,75 @@ final class BoundedPatternMatcherTests: XCTestCase {
         XCTAssertEqual(result.forProperty("reason")?.toString(), "step-budget")
     }
 
+    func testCreateBudgetRejectsNullAndNonObjectLimitsWithRangeError() throws {
+        let value = context.evaluateScript("""
+        (() => {
+          const m = BoundedPatternMatcher;
+          let nullRaised = false, numberRaised = false, nullIsRangeError = false, numberIsRangeError = false;
+          try { m.createBudget(null); } catch (e) { nullRaised = true; nullIsRangeError = e instanceof RangeError; }
+          try { m.createBudget(5); } catch (e) { numberRaised = true; numberIsRangeError = e instanceof RangeError; }
+          return { nullRaised, numberRaised, nullIsRangeError, numberIsRangeError };
+        })()
+        """)
+        XCTAssertNil(context.exception)
+        XCTAssertEqual(value?.forProperty("nullRaised")?.toBool(), true, "createBudget(null) must throw")
+        XCTAssertEqual(value?.forProperty("nullIsRangeError")?.toBool(), true, "createBudget(null) must throw RangeError")
+        XCTAssertEqual(value?.forProperty("numberRaised")?.toBool(), true, "createBudget(5) must throw")
+        XCTAssertEqual(value?.forProperty("numberIsRangeError")?.toBool(), true, "createBudget(5) must throw RangeError")
+    }
+
+    func testFindMatchesReportsInternalErrorInsteadOfThrowing() throws {
+        let handle = try budget()
+        // A dangling edge: instructions[0] advances to pc 99, which does not exist.
+        // Verified reachable: this throws "Cannot read properties of undefined (reading 'op')"
+        // from inside the metered scan, after `work.text` has already been charged.
+        let danglingProgram = try XCTUnwrap(context.evaluateScript(
+            "({ start: 0, instructions: [{ op: 'char', value: 97, next: 99 }] })"))
+        let result = try XCTUnwrap(context.objectForKeyedSubscript("BoundedPatternMatcher")?
+            .invokeMethod("findMatches", withArguments: [danglingProgram, "a", handle]))
+        XCTAssertNil(context.exception, "the engine defect must not escape as a raw JS exception")
+        XCTAssertEqual(result.forProperty("status")?.toString(), "rejected")
+        XCTAssertEqual(result.forProperty("reason")?.toString(), "internal-error")
+        XCTAssertEqual(handle.forProperty("text")?.toInt32(), 1, "text is charged before the defect surfaces")
+    }
+
+    func testResolveRunReportsInternalErrorInsteadOfThrowing() throws {
+        let handle = try budget()
+        // `matches` passes the Array.isArray validation check (it wraps a real array), but its
+        // Symbol.iterator throws when the validation loop actually iterates it — an engine-side
+        // defect surfacing after a group already looked well-formed, not a malformed-input case.
+        let groups = try XCTUnwrap(context.evaluateScript("""
+        (() => {
+          const boom = new Proxy([{ start: 0, end: 1 }], {
+            get(target, prop, receiver) {
+              if (prop === Symbol.iterator) throw new TypeError('boom');
+              return Reflect.get(target, prop, receiver);
+            }
+          });
+          return [{ kind: 'general', matches: boom }];
+        })()
+        """))
+        let result = try XCTUnwrap(context.objectForKeyedSubscript("BoundedPatternMatcher")?
+            .invokeMethod("resolveRun", withArguments: [groups, handle]))
+        XCTAssertNil(context.exception, "the engine defect must not escape as a raw JS exception")
+        XCTAssertEqual(result.forProperty("status")?.toString(), "rejected")
+        XCTAssertEqual(result.forProperty("reason")?.toString(), "internal-error")
+    }
+
+    func testLevelValidationRejectsInheritedObjectPrototypeNames() throws {
+        for name in ["toString", "__proto__"] {
+            let result = try resolve([level(name, [[0, 2]])])
+            XCTAssertEqual(result.forProperty("status")?.toString(), "rejected", name)
+            XCTAssertEqual(result.forProperty("reason")?.toString(), "invalid-groups", name)
+        }
+    }
+
+    func testResolveRunRejectsNegativeStartOffsets() throws {
+        let result = try resolve([general([[-5, 2]])])
+        XCTAssertEqual(result.forProperty("status")?.toString(), "rejected")
+        XCTAssertEqual(result.forProperty("reason")?.toString(), "invalid-groups")
+    }
+
     func testStepBudgetIsSharedAcrossFindMatchesAndResolveRun() throws {
         let handle = try budget()
         let matched = try find("a", "aaa", handle)

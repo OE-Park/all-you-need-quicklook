@@ -19,6 +19,7 @@
     }
 
     function createBudget(limits = {}) {
+        if (limits === null || typeof limits !== 'object') throw new RangeError('match budget');
         const state = {}, view = {};
         for (const [name, max] of COUNTERS) {
             const limit = limits[name] === undefined ? max : limits[name];
@@ -32,6 +33,16 @@
         return handle;
     }
 
+    // findMatches(program, text, budget) — run a compiled program over one text run.
+    //   { status: 'matched', matches: [{ start, end }] }        complete; matches may be empty
+    //   { status: 'skipped', reason: 'run-limit' }               this run only; document continues
+    //   { status: 'incomplete', reason }                         run discarded; caller stops matching
+    //       reason: 'step-budget' | 'interval-limit' | 'text-budget'
+    //   { status: 'rejected', reason }                           no work committed to the budget
+    //       reason: 'invalid-budget' | 'invalid-text' | 'invalid-program' | 'internal-error'
+    //           'internal-error': an engine defect (a thrown, non-Exhausted error) surfaced
+    //           during matching. Reported as an engine fault, not attributed to the caller's
+    //           program or text — never reported as 'invalid-program'.
     function findMatches(program, text, budget) {
         const work = budgets.get(budget);
         if (!work) return { status: 'rejected', reason: 'invalid-budget' };
@@ -112,13 +123,23 @@
                 list = next; pos += width;
             }
         } catch (e) {
-            if (!(e instanceof Exhausted)) throw e;
-            return { status: 'incomplete', reason: e.reason };   // run discarded atomically
+            if (e instanceof Exhausted) return { status: 'incomplete', reason: e.reason };   // run discarded atomically
+            return { status: 'rejected', reason: 'internal-error' };   // engine defect, not a caller error
         }
         return { status: 'matched', matches };
     }
     const RANK = { error: 4, warn: 3, info: 2, debug: 1 };
 
+    // resolveRun(groups, budget) — turn match groups for one run into ordered emphasis segments.
+    //   groups: [{ kind: 'level', level: 'error'|'warn'|'info'|'debug', matches: [...] },
+    //            { kind: 'general', matches: [...] }, ...]
+    //   { status: 'resolved', segments: [{ start, end, level, general }] }
+    //       non-overlapping, ascending, adjacent-identical merged
+    //   { status: 'incomplete', reason: 'segment-limit' | 'step-budget' }   run discarded
+    //   { status: 'rejected', reason: 'invalid-budget' | 'invalid-groups' | 'internal-error' }
+    //       'internal-error': an engine defect (a thrown, non-Exhausted error) surfaced while
+    //       resolving. Reported as an engine fault, not attributed to the caller's groups —
+    //       never reported as 'invalid-groups'.
     function resolveRun(groups, budget) {
         const work = budgets.get(budget);
         if (!work) return { status: 'rejected', reason: 'invalid-budget' };
@@ -132,12 +153,13 @@
                     return { status: 'rejected', reason: 'invalid-groups' };
                 }
                 const level = group.kind === 'level' ? group.level : null;
-                if (group.kind !== 'general' && !(group.kind === 'level' && RANK[level])) {
+                if (group.kind !== 'general' && !(group.kind === 'level' && Object.hasOwn(RANK, level))) {
                     return { status: 'rejected', reason: 'invalid-groups' };
                 }
                 for (const m of group.matches) {
                     take();                                // and for examining each of its matches,
-                    if (!m || !Number.isInteger(m.start) || !Number.isInteger(m.end) || m.end <= m.start) {
+                    if (!m || !Number.isInteger(m.start) || !Number.isInteger(m.end)
+                        || m.start < 0 || m.end <= m.start) {
                         return { status: 'rejected', reason: 'invalid-groups' };
                     }
                     events.push({ pos: m.start, delta: 1, key: level || 'general' },
@@ -150,6 +172,9 @@
                 let level = null;
                 for (const name of ['error', 'warn', 'info', 'debug']) {
                     take();
+                    // Scan order is fixed and already RANK-descending, so once `level` is set no
+                    // later `name` can out-rank it: `RANK[name] > RANK[level]` never fires below,
+                    // but it documents the intended precedence rule explicitly. Left as-is.
                     if (active[name] > 0 && (level === null || RANK[name] > RANK[level])) level = name;
                 }
                 const general = active.general > 0;
@@ -175,8 +200,8 @@
             }
             return { status: 'resolved', segments };
         } catch (e) {
-            if (!(e instanceof Exhausted)) throw e;
-            return { status: 'incomplete', reason: e.reason };
+            if (e instanceof Exhausted) return { status: 'incomplete', reason: e.reason };
+            return { status: 'rejected', reason: 'internal-error' };   // engine defect, not a caller error
         }
     }
 
