@@ -727,6 +727,16 @@ These stay unimplemented and must not be started here:
 
 Fill in during execution. Record for each task: command, log path, exit code, test counts, mutation results with the failing test names, and every check that was **not** run.
 
-- Task 1: _pending_
+- Task 1 (Metered Thompson matcher): DONE.
+  - RED: `xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination 'platform=macOS' -derivedDataPath /private/tmp/aynql-matcher -only-testing:Tests/BoundedPatternMatcherTests` → log `/private/tmp/aynql-matcher-red.log`, exit non-zero. All 14 new cases failed on `XCTUnwrap` for `bounded-pattern-matcher.js` (resource not yet bundled) — an assertion failure, not a Swift compile error, as required.
+  - GREEN: same command → log `/private/tmp/aynql-matcher-green.log`, `** TEST SUCCEEDED **`, `Executed 14 tests, with 0 failures (0 unexpected)`. (First attempt after writing the resource still failed because `xcodegen generate` had been run before the new `.js` file existed; rerunning `xcodegen generate` picked it up.)
+  - Mutations (each applied alone to `Shared/Resources/js/bounded-pattern-matcher.js`, copy saved at `/private/tmp/aynql-matcher-mutations/original.js`, `diff` confirmed byte-identical restore after every mutation):
+    1. Removed the `work.steps >= work.stepsLimit` guard in `take()` → log `/private/tmp/aynql-matcher-mutation1.log`: `testBudgetIsSharedAcrossCallsAndAFreshBudgetRecovers` and `testStepBudgetExhaustionDiscardsTheWholeRun` failed (6 failures total, expected two plus their assertion-level sub-failures) — matches brief.
+    2. Replaced the leftmost-longest comparison with unconditional `if (best === null) best = { start, end: pos };` → log `/private/tmp/aynql-matcher-mutation2.log`: `testLeftmostLongestBeatsFirstAlternative` failed (also `testOffsetsAreUTF16AndNeverSplitSurrogatePairs`, which also depends on longest-match `+` semantics) — required failure present.
+    3. Resumed scanning at `best.start + 1` instead of `best.end` → log `/private/tmp/aynql-matcher-mutation3.log`: `testMatchesAreNonOverlappingAndResumeAtTheMatchEnd` failed (also `testLeftmostLongestBeatsFirstAlternative` and `testOffsetsAreUTF16AndNeverSplitSurrogatePairs`, both of which also assert non-overlap via `+`) — required failure present.
+    4. Returned `{ status: 'incomplete', reason: e.reason, matches }` from the catch → log `/private/tmp/aynql-matcher-mutation4.log`: exactly `testStepBudgetExhaustionDiscardsTheWholeRun` and `testIntervalLimitDiscardsTheRunItOverflows` failed (2 failures total) — matches brief precisely.
+  - Full suite: `xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination 'platform=macOS' -derivedDataPath /private/tmp/aynql-matcher` → log `/private/tmp/aynql-matcher-final.log`, `** TEST SUCCEEDED **`, `Executed 132 tests, with 0 failures (0 unexpected)` (118 pre-existing + 14 new `BoundedPatternMatcherTests`).
+  - Host build: `xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination 'platform=macOS' build -derivedDataPath /private/tmp/aynql-matcher` → log `/private/tmp/aynql-matcher-build.log`, `** BUILD SUCCEEDED **`, ad-hoc signed app and embedded `QuickLookExtension.appex`; no Swift warnings.
+  - Not run / not claimed: no Finder integration check, no visual/WKWebView verification — this task renders nothing and touches no Swift production source.
 - Task 2: _pending_
 - Task 3: _pending_
