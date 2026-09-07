@@ -17,7 +17,7 @@ final class ProjectConfigurationTests: XCTestCase {
 
         XCTAssertEqual(
             Set(contentTypes),
-            Set(["public.plain-text", "net.daringfireball.markdown", "org.jupyter.notebook"])
+            Set(["public.plain-text", "com.apple.log", "net.daringfireball.markdown", "org.jupyter.notebook"])
         )
         XCTAssertNil(propertyList["QLSupportedContentTypes"])
     }

@@ -80,7 +80,7 @@ AllYouNeedQuickLook/
   - **Code cells — source:** Wrapped in `<pre><code>` with highlight.js syntax highlighting
   - **Code cells — outputs:**
     - `text/plain` → `<pre>` block
-    - `text/html` → displayed as escaped source (not activated as notebook-authored DOM)
+    - `text/html` → rendered as untrusted markup under the nonce CSP; scripts and event handlers cannot execute
     - `image/png`, `image/jpeg` → base64 `<img>` tag
     - `text/latex` → KaTeX rendering
     - `error` → traceback with ANSI color codes converted to CSS
@@ -190,7 +190,8 @@ SwiftUI app with three tabs:
 
 - External JavaScript execution blocked — only bundled JS allowed
 - Inline renderer JavaScript requires a per-document CSP nonce; `script-src 'unsafe-inline'` is not used
-- Bundled JS/CSS/fonts are served only through the private `quicklook-resource:` scheme
+- Bundled JS/CSS are inlined; only app-controlled scripts carry the document nonce
+- Bundled fonts are served through the private `quicklook-resource://bundle` scheme
 - External link navigation blocked (no page navigation from QuickLook)
 - Only external images allowed (with 3s timeout); all other external resources (CSS, JS, iframe) blocked
 

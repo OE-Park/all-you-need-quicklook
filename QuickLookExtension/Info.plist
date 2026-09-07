@@ -32,6 +32,7 @@
 			<key>QLSupportedContentTypes</key>
 			<array>
 				<string>public.plain-text</string>
+				<string>com.apple.log</string>
 				<string>net.daringfireball.markdown</string>
 				<string>org.jupyter.notebook</string>
 			</array>

@@ -5,37 +5,36 @@ public final class MarkdownRenderer: Renderer {
 
     public init() {}
 
-    public func render(content: String, config: AppConfig, fileExtension: String) -> String {
-        let contentString = javaScriptString(content)
+    public func render(content: String, config: AppConfig, fileExtension: String, nonce: String) -> String {
+        let escapedContent = ScriptEscaping.forTemplateLiteral(content)
         let body = """
         <div id="markdown-content" class="markdown"></div>
-        <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
+        <script nonce="\(nonce)">
         document.addEventListener('DOMContentLoaded', function() {
-            var raw = \(contentString);
-            var escapeHTML = function(value) {
-                return value.replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#39;');
-            };
-            var renderer = new marked.Renderer();
-            renderer.html = function(token) {
-                return escapeHTML(token.text);
-            };
-            marked.setOptions({
-                renderer: renderer,
-                gfm: true,
-                breaks: false
-            });
-            var rendered = marked.parse(raw);
-            document.getElementById('markdown-content').innerHTML = rendered;
+            var raw = `\(escapedContent)`;
+            marked.setOptions({ gfm: true, breaks: false });
+            var container = document.getElementById('markdown-content');
+            container.innerHTML = marked.parse(raw);
 
-            renderMathInElement(document.getElementById('markdown-content'));
-            document.querySelectorAll('#markdown-content pre code').forEach(function(el) {
-                hljs.highlightElement(el);
-            });
+            renderMathInElement(container);
+            highlightCodeBlocks(container);
         });
+
+        // marked dropped its `highlight` option in v5 and the bundled build is
+        // v15, so passing one to setOptions silently did nothing and every code
+        // fence rendered unhighlighted. Highlighting is driven here instead,
+        // the same way the notebook renderer drives it.
+        //
+        // Runs after the math pass, whose innerHTML round-trip would otherwise
+        // re-parse these spans. hljs.highlightElement reads the element's
+        // textContent and writes back its own escaped markup, so nothing that
+        // marked already escaped is reintroduced to the DOM as raw source.
+        function highlightCodeBlocks(container) {
+            var blocks = container.querySelectorAll('pre code');
+            for (var i = 0; i < blocks.length; i++) {
+                try { hljs.highlightElement(blocks[i]); } catch (e) {}
+            }
+        }
 
         function renderMathInElement(element) {
             var text = element.innerHTML;
@@ -53,11 +52,6 @@ public final class MarkdownRenderer: Renderer {
         }
         </script>
         """
-        return HTMLTemplate.wrap(body: body, rendererType: "markdown")
-    }
-
-    private func javaScriptString(_ string: String) -> String {
-        let data = try! JSONEncoder().encode(string)
-        return String(decoding: data, as: UTF8.self)
+        return HTMLTemplate.wrap(body: body, rendererType: "markdown", nonce: nonce)
     }
 }

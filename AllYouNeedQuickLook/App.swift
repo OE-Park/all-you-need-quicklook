@@ -5,7 +5,22 @@ import SwiftUI
 struct AllYouNeedQuickLookApp: App {
     var body: some Scene {
         WindowGroup {
-            Text("AllYouNeedQuickLook")
+            TabView {
+                WelcomeView()
+                    .tabItem {
+                        Label("Welcome", systemImage: "hand.wave")
+                    }
+                SettingsView()
+                    .tabItem {
+                        Label("Settings", systemImage: "gear")
+                    }
+                PreviewView()
+                    .tabItem {
+                        Label("Preview", systemImage: "eye")
+                    }
+            }
+            .frame(minWidth: 700, minHeight: 500)
         }
+        .windowResizability(.contentMinSize)
     }
 }

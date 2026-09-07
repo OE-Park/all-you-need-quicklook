@@ -5,10 +5,10 @@ public final class NotebookRenderer: Renderer {
 
     public init() {}
 
-    public func render(content: String, config: AppConfig, fileExtension: String) -> String {
+    public func render(content: String, config: AppConfig, fileExtension: String, nonce: String) -> String {
         guard let data = content.data(using: .utf8),
               let notebook = try? JSONDecoder().decode(Notebook.self, from: data) else {
-            return renderError("Error: Failed to parse notebook file.")
+            return renderError("Error: Failed to parse notebook file.", nonce: nonce)
         }
 
         var cellsHTML = ""
@@ -25,27 +25,16 @@ public final class NotebookRenderer: Renderer {
 
         let body = """
         \(cellsHTML)
-        <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
+        <script nonce="\(nonce)">
         document.addEventListener('DOMContentLoaded', function() {
-            var escapeHTML = function(value) {
-                return value.replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#39;');
-            };
-            var renderer = new marked.Renderer();
-            renderer.html = function(token) {
-                return escapeHTML(token.text);
-            };
-            marked.setOptions({ renderer: renderer, gfm: true });
-
+            marked.setOptions({ gfm: true });
             document.querySelectorAll('.markdown-cell-raw').forEach(function(el) {
-                var raw = el.textContent;
+                var raw = el.innerHTML;
                 el.innerHTML = marked.parse(raw);
                 el.classList.remove('markdown-cell-raw');
                 el.classList.add('markdown-cell');
             });
+
 
             document.querySelectorAll('.katex-latex').forEach(function(el) {
                 try {
@@ -68,7 +57,6 @@ public final class NotebookRenderer: Renderer {
                 });
                 el.innerHTML = html;
             });
-
             document.querySelectorAll('.code-source code, .markdown-cell pre code').forEach(function(el) {
                 hljs.highlightElement(el);
             });
@@ -76,7 +64,7 @@ public final class NotebookRenderer: Renderer {
         </script>
         """
 
-        return HTMLTemplate.wrap(body: body, rendererType: "notebook")
+        return HTMLTemplate.wrap(body: body, rendererType: "notebook", nonce: nonce)
     }
 
     private func renderMarkdownCell(_ cell: Cell) -> String {
@@ -150,8 +138,18 @@ public final class NotebookRenderer: Renderer {
         if let jpeg = data["image/jpeg"] {
             return "<div class=\"cell-output\"><img src=\"data:image/jpeg;base64,\(HTMLEscaper.escape(jpeg.text))\"></div>"
         }
+        // text/html output is the one place a notebook's own markup is handed
+        // to the parser rather than escaped, so a `<script>` in it is a real
+        // script element — not the inert `innerHTML`-inserted kind the markdown
+        // path produces. `script-src 'nonce-…'` is what makes it inert, and
+        // the notebook cannot know this load's nonce.
+        //
+        // That silently costs the one notebook output form that used to work:
+        // a self-contained inline bundle (`plotly.io.write_html(…,
+        // include_plotlyjs='inline')` and friends). Rather than leave a blank
+        // gap where a chart was, say so.
         if let htmlData = data["text/html"] {
-            return "<div class=\"cell-output\"><pre>\(HTMLEscaper.escape(htmlData.text))</pre></div>"
+            return "<div class=\"cell-output\">\(htmlData.text)\(blockedScriptNotice(htmlData.text))</div>"
         }
         if let latex = data["text/latex"] {
             return "<div class=\"cell-output\"><div class=\"katex-latex\">\(HTMLEscaper.escape(latex.text))</div></div>"
@@ -162,8 +160,24 @@ public final class NotebookRenderer: Renderer {
         return ""
     }
 
-    private func renderError(_ message: String) -> String {
-        let body = "<div class=\"cell-output cell-error\"><pre>\(HTMLEscaper.escape(message))</pre></div>"
-        return HTMLTemplate.wrap(body: body, rendererType: "notebook")
+    /// A plain, escaped, script-free and style-free notice for a `text/html`
+    /// output whose scripts the policy will refuse.
+    ///
+    /// Emitted Swift-side as static markup reusing the template's existing
+    /// `.placeholder-image` class, so it adds no `script-src` or `style-src`
+    /// surface of its own. The test is deliberately crude — a literal
+    /// `<script` in the output text — because the cost of a false positive is
+    /// one extra line of explanation, while the cost of a false negative is
+    /// the blank gap this exists to prevent.
+    private func blockedScriptNotice(_ html: String) -> String {
+        guard html.range(of: "<script", options: .caseInsensitive) != nil else { return "" }
+        return "<div class=\"placeholder-image\">This output contains an inline script, "
+            + "which this preview does not run.</div>"
     }
+
+    private func renderError(_ message: String, nonce: String) -> String {
+        let body = "<div class=\"cell-output cell-error\"><pre>\(HTMLEscaper.escape(message))</pre></div>"
+        return HTMLTemplate.wrap(body: body, rendererType: "notebook", nonce: nonce)
+    }
+
 }

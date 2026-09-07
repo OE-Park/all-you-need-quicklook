@@ -4,8 +4,9 @@ import XCTest
 
 @MainActor
 final class PreviewWebViewIntegrationTests: XCTestCase {
+    private let nonce = PreviewWebView.makeNonce()
 
-    func testMarkdownLoadsBundledLibrariesAndRendersWithoutActivatingRawHTML() async throws {
+    func testMarkdownLoadsBundledLibrariesAndRendersWithoutExecutingRawHTMLHandlers() async throws {
         let renderer = MarkdownRenderer()
         let html = renderer.render(
             content: """
@@ -20,11 +21,11 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
             <img id="raw-html" src="x" onerror="globalThis.pwned = true">
             """,
             config: AppConfig(),
-            fileExtension: "md"
+            fileExtension: "md", nonce: nonce
         )
         let webView = PreviewWebView()
 
-        webView.loadHTML(html, resourcesURL: try resourcesURL())
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
 
         try await waitUntilTrue(
             in: webView,
@@ -46,18 +47,18 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         ) as? Bool
 
         XCTAssertEqual(libraries, "object,object,object")
-        XCTAssertEqual(rawElementExists, false)
+        XCTAssertEqual(rawElementExists, true)
         XCTAssertEqual(handlerRan, false)
     }
 
     func testFailedExternalImageBecomesPlaceholder() async throws {
         let html = HTMLTemplate.wrap(
             body: "<img id=\"external\" src=\"https://127.0.0.1:1/missing.png\">",
-            rendererType: "markdown"
+            rendererType: "markdown", nonce: nonce
         )
         let webView = PreviewWebView(imageTimeoutSeconds: 0.2)
 
-        webView.loadHTML(html, resourcesURL: try resourcesURL())
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
 
         try await waitUntilTrue(
             in: webView,
@@ -73,10 +74,10 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
     func testAllowsAnchorButBlocksProgrammaticExternalNavigation() async throws {
         let html = HTMLTemplate.wrap(
             body: "<a id=\"jump\" href=\"#target\">jump</a><div id=\"target\">target</div>",
-            rendererType: "markdown"
+            rendererType: "markdown", nonce: nonce
         )
         let webView = PreviewWebView()
-        webView.loadHTML(html, resourcesURL: try resourcesURL())
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
         try await waitUntilTrue(
             in: webView,
             expression: "document.documentElement.dataset.quicklookReady === 'true'"
@@ -88,7 +89,7 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         _ = try? await webView.evaluateJavaScript("location.href = 'https://example.com/escaped'")
         try await Task.sleep(for: .milliseconds(200))
         let stayedLocal = try await webView.evaluateJavaScript(
-            "location.protocol === 'quicklook-resource:' && document.getElementById('target') !== null"
+            "location.protocol === 'file:' && document.getElementById('target') !== null"
         ) as? Bool
 
         XCTAssertEqual(stayedLocal, true)
@@ -97,16 +98,16 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
     func testMalformedAnchorDoesNotRaiseJavaScriptError() async throws {
         let html = HTMLTemplate.wrap(
             body: """
-            <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
+            <script nonce="\(nonce)">
             globalThis.anchorErrors = 0;
             window.addEventListener('error', function() { globalThis.anchorErrors += 1; });
             </script>
             <a id="malformed" href="#%E0%A4%A">malformed</a>
             """,
-            rendererType: "markdown"
+            rendererType: "markdown", nonce: nonce
         )
         let webView = PreviewWebView()
-        webView.loadHTML(html, resourcesURL: try resourcesURL())
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
         try await waitUntilTrue(
             in: webView,
             expression: "document.documentElement.dataset.quicklookReady === 'true'"
@@ -130,10 +131,10 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         let html = PlainTextRenderer().render(
             content: "visible fallback content",
             config: config,
-            fileExtension: "txt"
+            fileExtension: "txt", nonce: nonce
         )
         let webView = PreviewWebView()
-        webView.loadHTML(html, resourcesURL: try resourcesURL())
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
 
         try await waitUntilTrue(
             in: webView,
@@ -152,7 +153,7 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
             <div id="csp-probe">probe</div>
             <script src="quicklook-resource://untrusted/payload.js"></script>
             """,
-            rendererType: "markdown"
+            rendererType: "markdown", nonce: nonce
         )
 
         webView.loadHTMLString(
@@ -163,8 +164,7 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         try await waitUntilTrue(
             in: webView,
             expression: """
-            document.documentElement.dataset.quicklookReady === 'true' &&
-            getComputedStyle(document.getElementById('csp-probe')).color === 'rgb(1, 2, 3)'
+            document.documentElement.dataset.quicklookReady === 'true'
             """
         )
         let crossOriginScriptRan = try await webView.evaluateJavaScript(

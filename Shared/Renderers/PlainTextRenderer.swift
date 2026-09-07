@@ -5,7 +5,7 @@ public final class PlainTextRenderer: Renderer {
 
     public init() {}
 
-    public func render(content: String, config: AppConfig, fileExtension: String) -> String {
+    public func render(content: String, config: AppConfig, fileExtension: String, nonce: String) -> String {
         let resolved = config.resolvedConfig(for: fileExtension)
         let lines = content.components(separatedBy: "\n")
 
@@ -20,7 +20,7 @@ public final class PlainTextRenderer: Renderer {
         if resolved.syntaxHighlight, let language = resolved.syntaxLanguage {
             return renderWithSyntaxHighlight(
                 content: content, language: language,
-                resolved: resolved, customCSS: customCSS
+                resolved: resolved, customCSS: customCSS, nonce: nonce
             )
         }
 
@@ -36,29 +36,28 @@ public final class PlainTextRenderer: Renderer {
         }
 
         let body = "<pre class=\"plaintext-content\">\(processedLines.joined(separator: "\n"))</pre>"
-        return HTMLTemplate.wrap(body: body, rendererType: "plaintext", customCSS: customCSS)
+        return HTMLTemplate.wrap(body: body, rendererType: "plaintext", nonce: nonce, customCSS: customCSS)
     }
 
     private func renderWithSyntaxHighlight(
         content: String, language: String,
-        resolved: ResolvedFileTypeConfig, customCSS: String
+        resolved: ResolvedFileTypeConfig, customCSS: String, nonce: String
     ) -> String {
-        let contentString = javaScriptString(content)
-        let languageString = javaScriptString(language)
-        let languageClass = HTMLEscaper.escape(language)
+        let escaped = ScriptEscaping.forTemplateLiteral(content)
+        let escapedLanguage = ScriptEscaping.forSingleQuotedLiteral(language)
         let body = """
-        <pre class="plaintext-content"><code id="code-content" class="language-\(languageClass)"></code></pre>
-        <script nonce="\(HTMLTemplate.scriptNoncePlaceholder)">
+        <pre class="plaintext-content"><code id="code-content" class="language-\(HTMLEscaper.escape(language))"></code></pre>
+        <script nonce="\(nonce)">
         document.addEventListener('DOMContentLoaded', function() {
-            var raw = \(contentString);
-            var result = hljs.getLanguage(\(languageString))
-                ? hljs.highlight(raw, { language: \(languageString) })
+            var raw = `\(escaped)`;
+            var result = hljs.getLanguage('\(escapedLanguage)')
+                ? hljs.highlight(raw, { language: '\(escapedLanguage)' })
                 : hljs.highlightAuto(raw);
             document.getElementById('code-content').innerHTML = result.value;
         });
         </script>
         """
-        return HTMLTemplate.wrap(body: body, rendererType: "plaintext", customCSS: customCSS)
+        return HTMLTemplate.wrap(body: body, rendererType: "plaintext", nonce: nonce, customCSS: customCSS)
     }
 
     private func applyLogPatterns(_ line: String, patterns: [String: String]?) -> String {
@@ -79,11 +78,6 @@ public final class PlainTextRenderer: Renderer {
             }
         }
         return result
-    }
-
-    private func javaScriptString(_ string: String) -> String {
-        let data = try! JSONEncoder().encode(string)
-        return String(decoding: data, as: UTF8.self)
     }
 
     private func escapeCSSString(_ string: String) -> String {

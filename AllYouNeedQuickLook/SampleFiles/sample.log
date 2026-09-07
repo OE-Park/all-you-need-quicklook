@@ -1,0 +1,12 @@
+2026-03-30 10:00:01 INFO  Application started successfully
+2026-03-30 10:00:02 DEBUG Loading configuration from /etc/app/config.yaml
+2026-03-30 10:00:03 INFO  Connected to database (pool_size=10)
+2026-03-30 10:00:15 WARN  Slow query detected (2340ms): SELECT * FROM users WHERE ...
+2026-03-30 10:00:30 ERROR Failed to process request: timeout after 30s
+2026-03-30 10:00:30 ERROR Stack trace:
+  at RequestHandler.process(RequestHandler.swift:142)
+  at Server.handleConnection(Server.swift:89)
+2026-03-30 10:00:31 INFO  Retrying request (attempt 2/3)
+2026-03-30 10:00:32 WARN  Memory usage above 80% threshold (82.3%)
+2026-03-30 10:00:45 FATAL Unrecoverable error: disk full
+2026-03-30 10:00:45 CRITICAL Shutting down gracefully

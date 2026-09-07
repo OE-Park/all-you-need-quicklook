@@ -10,9 +10,91 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-30-quicklook-extension-design.md`
 
-**Security Note:** All renderers that produce HTML from user content must HTML-escape text before injection. Inline renderer scripts require a per-document CSP nonce; bundled JS/CSS/fonts load only through `quicklook-resource:`, and external images load only through the timeout-controlled `quicklook-image:` handler. Notebook `text/html` output is displayed as escaped source. External navigation and external script/CSS loading are blocked by CSP and `WKNavigationDelegate`.
+> **PR integration override (2026-09-07):** Current source uses explicit nonce
+> plumbing and inline JS/CSS from the host branch, plus main's timeout-controlled
+> image proxy and private bundled-font scheme. Historical snippets and completed
+> checks below describe their original trees. The current merge passed 130 tests
+> and the host build. Finder Space checks of .md/.ipynb/.log also passed on
+> this build after verifying its running extension path; previous registrations
+> were restored after the owner-approved temporary isolation. Dark-mode switching
+> remains the historical owner check, not part of this conflict validation.
 
-> **Stabilization override (2026-09-03):** Completed Task 9–10 code snippets below record the original TDD sequence and are not the current security implementation. For rendering, CSP, navigation, external-image loading, signing, and QuickLook metadata, follow the design spec and current source/tests.
+**Security Note — actual threat model:** A previewed file **cannot run script.** That is
+enforced rather than asserted: `script-src` names one fresh per-document nonce and nothing
+else. It is written down here so nobody re-derives it from the code — and because an
+earlier version of this note got the notebook path wrong (see below).
+
+What is true:
+
+- Every renderer HTML-escapes the text it injects, and every Swift value interpolated into
+  an inline `<script>` goes through `Shared/Renderers/ScriptEscaping.swift`, which
+  neutralises `</script` as well as the JavaScript literal it lands in. A previewed file
+  therefore cannot end a script element and be parsed as document markup.
+- The CSP (`Shared/WebView/PreviewWebView.swift`) is `default-src 'none'` with
+  `script-src 'nonce-<per-document random>'`, `style-src 'unsafe-inline'`,
+  `img-src data: http: https:`, `font-src data:`, `base-uri 'none'` and
+  `form-action 'none'`. External JS, external CSS, frames, `eval`, XHR/fetch/WebSocket
+  (no `connect-src`) and form posts are all blocked, and so is every inline script the
+  document did not come with.
+- The nonce is 16 bytes from `SecRandomCopyBytes`, base64-encoded.
+  `PreviewWebView.makeNonce()` mints one per document; the renderer stamps it on every
+  `<script>` it emits (three bundled libraries plus the renderer's own driver), and
+  `PreviewWebView.loadHTML(_:resourcesURL:nonce:)` arms the policy with the same value.
+  The injected `<meta>` is rebuilt on every load behind `removeAllUserScripts()`, so the
+  previous document's nonce dies with the previous document.
+- **The nonce has to live in the user script, not in the template.** WebKit ignores a
+  parser-inserted `<meta http-equiv="Content-Security-Policy">` entirely when a
+  DOM-inserted one is already present — and the user script's meta is DOM-inserted. A
+  policy written into `HTMLTemplate`'s HTML would be dead text. Two consequences: anyone
+  "simplifying" by moving the CSP into the template would silently ship the old policy,
+  and a previewed file that smuggles in its own `<meta>` CSP cannot affect the real one
+  either.
+- `WKNavigationDelegate` cancels every navigation except this view's own document load —
+  script-initiated (`window.location`, meta refresh) included.
+
+What is **not** true — the nonce makes payloads inert, it does not remove them:
+
+- **Markdown source is not sanitized.** `MarkdownRenderer` does
+  `container.innerHTML = marked.parse(raw)`. marked has shipped no sanitizer since v5 and
+  the bundled build is v15, so raw HTML in a `.md` file — `<img src=x onerror=…>`, an
+  inline event handler on anything, a `javascript:` href, an `<iframe srcdoc>` — still
+  reaches the DOM as markup. None of it runs: inline handlers and `javascript:` URLs are
+  refused by the nonce policy, and a `srcdoc` child inherits the parent's CSP (worth
+  knowing: `default-src 'none'` does not stop a `srcdoc` frame from *loading* in this
+  WebKit, only from doing anything once loaded).
+- **Notebook `text/html` output is injected unescaped by design**
+  (`NotebookRenderer.renderMimeData`), matching Jupyter's own trust model. **Correcting
+  this note's previous claim:** that output is *parser-inserted document markup*, not
+  `innerHTML`, so a bare `<script>` element in a notebook output **did execute** before
+  the nonce — no event-handler trick needed. The notebook path was strictly worse than
+  the markdown path, not equivalent to it. The nonce is what closes it, and it is the
+  main reason the nonce was worth doing.
+- Attacker markup consequently still sits in the DOM: inert `<iframe>`s, dead
+  `javascript:` links, `<form>`s that cannot submit. A sanitizer (DOMPurify) would strip
+  them rather than neutralise them. It is not implemented; with the nonce in place it
+  would be defence in depth, not the fix.
+
+**Accepted regression.** Dropping `'unsafe-inline'` breaks the one notebook output form
+that used to work: a `text/html` output carrying a fully self-contained inline JavaScript
+bundle — `plotly.io.write_html(…, include_plotlyjs='inline')` and hand-rolled
+`<div><script>…</script></div>` visualisations. That is intended: it is exactly the
+capability the attack used, and there is no way to keep one without the other. CDN-backed
+outputs (plotly `include_plotlyjs='cdn'`, Bokeh, Vega/Altair, ipywidgets, `require.js`
+bootstraps) were already dead, because `script-src` has never named a host. So that this
+does not read as a rendering bug, `NotebookRenderer` emits a plain escaped-text notice —
+"This output contains an inline script, which this preview does not run." — after any
+`text/html` output containing `<script`. The notice is static markup written Swift-side
+reusing an existing CSS class; it adds no script and no style source.
+
+Residual blast radius: **no script at all from a previewed file**. The one outbound
+channel, `img-src http: https:`, is now reachable only by markup the file writes directly
+(an `<img src>` marked passes through), not by script, so it can leak *that the file was
+previewed, and when* — not the document's contents. The QuickLook extension holds
+`com.apple.security.network.client`, so that channel does reach the network. Removing
+`http:`/`https:` from `img-src` would close it outright, at the cost of remote images in
+Markdown and notebooks, which the spec allows deliberately ("Only external images allowed
+(with 3s timeout)"). That is a separate product decision the owner has not made. Do not
+"fix" it in passing — raise it.
 
 ---
 
@@ -25,7 +107,7 @@
 | `Shared/Models/ConfigSchema.swift` | Codable structs for JSON config (GlobalConfig, FileTypeConfig, AppConfig) |
 | `Shared/Models/NotebookSchema.swift` | Codable structs for .ipynb JSON (Notebook, Cell, Output, CellType) |
 | `Shared/Config/ConfigLoader.swift` | Read/write JSON config from App Group container, fallback to defaults |
-| `Shared/Renderers/RenderProtocol.swift` | `Renderer` protocol — `func render(content: String, config: AppConfig, fileExtension: String) -> String` |
+| `Shared/Renderers/RenderProtocol.swift` | `Renderer` protocol — `func render(content: String, config: AppConfig, fileExtension: String, nonce: String) -> String` (`nonce` is the document's CSP nonce; every emitted `<script>` must carry it) |
 | `Shared/Renderers/MarkdownRenderer.swift` | Markdown content → HTML (wraps in template, marked.js renders in browser) |
 | `Shared/Renderers/PlainTextRenderer.swift` | Plain text → HTML with config-based CSS, log level highlighting |
 | `Shared/Renderers/NotebookRenderer.swift` | ipynb JSON → HTML (parses cells, generates HTML for each output type) |
@@ -37,9 +119,7 @@
 | File | Responsibility |
 |------|---------------|
 | `QuickLookExtension/PreviewViewController.swift` | QLPreviewingController — routes file to renderer, loads into WKWebView |
-| `Shared/WebView/PreviewWebView.swift` | WKWebView subclass with security policies, image timeout, navigation blocking |
-| `Shared/WebView/BundledResourceSchemeHandler.swift` | Restricts bundled JS/CSS/font access to the Shared resource directory |
-| `Shared/WebView/ExternalImageSchemeHandler.swift` | Loads HTTP(S) images with timeout, MIME, status, and size validation |
+| `QuickLookExtension/WebView/PreviewWebView.swift` | WKWebView subclass with security policies, 3s image timeout, navigation blocking |
 | `QuickLookExtension/Info.plist` | QLSupportedContentTypes, UTExportedTypeDeclarations |
 | `QuickLookExtension/QuickLookExtension.entitlements` | Sandbox + network.client + app-groups |
 
@@ -218,16 +298,63 @@ struct AllYouNeedQuickLookApp: App {
 // QuickLookExtension/PreviewViewController.swift
 import Cocoa
 import Quartz
+import WebKit
+import Shared
 
 class PreviewViewController: NSViewController, QLPreviewingController {
+
+    private var webView: PreviewWebView!
+
     override var nibName: NSNib.Name? { nil }
 
     override func loadView() {
-        self.view = NSView()
+        let config = ConfigLoader().load()
+        webView = PreviewWebView(
+            frame: NSRect(x: 0, y: 0, width: 600, height: 400),
+            imageTimeoutSeconds: TimeInterval(config.global.imageTimeoutSeconds)
+        )
+        webView.autoresizingMask = [.width, .height]
+        self.view = webView
     }
 
     func preparePreviewOfFile(at url: URL) async throws {
-        // TODO: implement in Task 12
+        let content: String
+        if let utf8 = try? String(contentsOf: url, encoding: .utf8) {
+            content = utf8
+        } else if let latin1 = try? String(contentsOf: url, encoding: .isoLatin1) {
+            content = latin1
+        } else {
+            content = try String(contentsOf: url, encoding: .utf8)
+        }
+
+        let fileExtension = url.pathExtension.lowercased()
+        let config = ConfigLoader().load()
+
+        let renderer: Renderer = switch fileExtension {
+        case "md", "markdown":
+            MarkdownRenderer()
+        case "ipynb":
+            NotebookRenderer()
+        default:
+            PlainTextRenderer()
+        }
+
+        // One nonce per document, generated here and handed to both halves:
+        // the renderer stamps it on the `<script>` elements it emits, and the
+        // web view arms `script-src 'nonce-…'` with the same value.
+        let nonce = PreviewWebView.makeNonce()
+        let html = renderer.render(
+            content: content, config: config, fileExtension: fileExtension, nonce: nonce
+        )
+
+        let resourcesURL = Bundle(for: PreviewWebView.self).resourceURL
+            ?? Bundle(for: Self.self).resourceURL
+            ?? Bundle.main.resourceURL
+
+        await MainActor.run {
+            _ = self.view
+            webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
+        }
     }
 }
 ```
@@ -1815,7 +1942,7 @@ Expected: FAIL — `NotebookRenderer` not found
 
 - [x] **Step 3: Implement NotebookRenderer**
 
-The NotebookRenderer parses ipynb JSON in Swift and generates static HTML for each cell. Markdown cells are placed as escaped text in `.markdown-cell-raw` divs — the browser-side JS then uses marked.js to render them. Code cell sources are HTML-escaped on the Swift side and placed in `<code>` elements for highlight.js. The stabilization override displays `text/html` mime output as escaped source. Error tracebacks go through ANSIConverter, which HTML-escapes before processing ANSI codes.
+The NotebookRenderer parses ipynb JSON in Swift and generates static HTML for each cell. Markdown cells are placed as escaped text in `.markdown-cell-raw` divs — the browser-side JS then uses marked.js to render them. Code cell sources are HTML-escaped on the Swift side and placed in `<code>` elements for highlight.js. Output HTML from `text/html` mime type is inserted as-is (this is the same behavior as Jupyter itself — notebook HTML outputs are trusted content from the notebook author). Error tracebacks go through ANSIConverter which HTML-escapes before processing ANSI codes.
 
 ```swift
 // Shared/Renderers/NotebookRenderer.swift
@@ -2249,7 +2376,7 @@ git commit -m "feat: implement PreviewViewController with file routing to render
 - Create: `AllYouNeedQuickLook/Views/SettingsView.swift` (placeholder)
 - Create: `AllYouNeedQuickLook/Views/PreviewView.swift` (placeholder)
 
-- [ ] **Step 1: Implement App with TabView and placeholder views**
+- [x] **Step 1: Implement App with TabView and placeholder views**
 
 ```swift
 // AllYouNeedQuickLook/App.swift
@@ -2305,15 +2432,112 @@ struct SettingsView: View {
 ```swift
 // AllYouNeedQuickLook/Views/PreviewView.swift
 import SwiftUI
+import Shared
 
 struct PreviewView: View {
+
+    struct SampleFile: Identifiable, Hashable {
+        let id: String
+        let name: String
+        let ext: String
+    }
+
+    private let samples: [SampleFile] = [
+        SampleFile(id: "md", name: "sample.md", ext: "md"),
+        SampleFile(id: "txt", name: "sample.txt", ext: "txt"),
+        SampleFile(id: "log", name: "sample.log", ext: "log"),
+        SampleFile(id: "ipynb", name: "sample.ipynb", ext: "ipynb"),
+    ]
+
+    @State private var selectedSample: SampleFile?
+
+    /// The rendered document, recomputed when the selection changes.
+    ///
+    /// Rendering inside `body` re-read the sample from disk, re-read
+    /// `config.json` from the App Group and rebuilt the whole ~475 KB template
+    /// on *every* body evaluation, handing the web view a fresh string each
+    /// time. Doing it here means one render per selection.
+    @State private var rendered: RenderedSample?
+
+    /// A composed document and the nonce it was composed with. The two are
+    /// inseparable: `PreviewWebView` arms `script-src` with this nonce, so a
+    /// document paired with any other one renders blank.
+    struct RenderedSample: Equatable {
+        let html: String
+        let nonce: String
+    }
+
+    private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
+
     var body: some View {
-        Text("Preview — placeholder")
+        NavigationSplitView {
+            List(selection: $selectedSample) {
+                ForEach(samples) { sample in
+                    Label(sample.name, systemImage: iconForExtension(sample.ext))
+                        .tag(sample)
+                }
+            }
+            .navigationTitle("Samples")
+        } detail: {
+            if let rendered {
+                PreviewWebViewRepresentable(
+                    html: rendered.html, nonce: rendered.nonce, resourcesURL: Self.resourcesURL
+                )
+            } else {
+                ContentUnavailableView(
+                    "Select a Sample File",
+                    systemImage: "doc",
+                    description: Text("Choose a file from the sidebar to preview.")
+                )
+            }
+        }
+        .onChange(of: selectedSample) { _, sample in
+            rendered = sample.map(Self.render)
+        }
+    }
+
+    private static func render(_ sample: SampleFile) -> RenderedSample {
+        let content = loadSampleContent(sample.name)
+        let config = ConfigLoader().load()
+        let renderer: Renderer = switch sample.ext {
+        case "md", "markdown": MarkdownRenderer()
+        case "ipynb": NotebookRenderer()
+        default: PlainTextRenderer()
+        }
+        let nonce = PreviewWebView.makeNonce()
+        return RenderedSample(
+            html: renderer.render(
+                content: content, config: config, fileExtension: sample.ext, nonce: nonce
+            ),
+            nonce: nonce
+        )
+    }
+
+    private static func loadSampleContent(_ name: String) -> String {
+        guard let url = Bundle.main.url(forResource: name, withExtension: nil)
+                ?? Bundle.main.url(
+                    forResource: (name as NSString).deletingPathExtension,
+                    withExtension: (name as NSString).pathExtension
+                ),
+              let content = try? String(contentsOf: url, encoding: .utf8) else {
+            return "Error: Could not load \(name)"
+        }
+        return content
+    }
+
+    private func iconForExtension(_ ext: String) -> String {
+        switch ext {
+        case "md": return "doc.richtext"
+        case "txt": return "doc.text"
+        case "log": return "terminal"
+        case "ipynb": return "tablecells"
+        default: return "doc"
+        }
     }
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2321,7 +2545,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/App.swift AllYouNeedQuickLook/Views/
@@ -2335,7 +2559,7 @@ git commit -m "feat: add host app shell with TabView and placeholder views"
 **Files:**
 - Modify: `AllYouNeedQuickLook/Views/WelcomeView.swift`
 
-- [ ] **Step 1: Implement WelcomeView**
+- [x] **Step 1: Implement WelcomeView**
 
 ```swift
 // AllYouNeedQuickLook/Views/WelcomeView.swift
@@ -2395,7 +2619,7 @@ struct WelcomeView: View {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2403,7 +2627,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/Views/WelcomeView.swift
@@ -2417,7 +2641,7 @@ git commit -m "feat: implement WelcomeView with extension activation guide"
 **Files:**
 - Modify: `AllYouNeedQuickLook/Views/SettingsView.swift`
 
-- [ ] **Step 1: Implement SettingsView**
+- [x] **Step 1: Implement SettingsView**
 
 ```swift
 // AllYouNeedQuickLook/Views/SettingsView.swift
@@ -2427,6 +2651,7 @@ import Shared
 struct SettingsView: View {
     @State private var config: AppConfig
     @State private var newExtension = ""
+    @State private var saveError: String?
     private let loader = ConfigLoader()
 
     init() {
@@ -2451,9 +2676,9 @@ struct SettingsView: View {
             }
 
             Section("File Type Settings") {
-                ForEach(sortedFileTypes, id: \.key) { ext, fileType in
-                    DisclosureGroup(ext) {
-                        fileTypeEditor(for: ext)
+                ForEach(sortedFileTypes, id: \.key) { entry in
+                    DisclosureGroup(entry.key) {
+                        fileTypeEditor(for: entry.key)
                     }
                 }
 
@@ -2464,6 +2689,12 @@ struct SettingsView: View {
                         let ext = newExtension.trimmingCharacters(in: .whitespaces).lowercased()
                         guard !ext.isEmpty else { return }
                         if config.fileTypes == nil { config.fileTypes = [:] }
+                        // Assigning unconditionally would overwrite an existing
+                        // entry — typing "log" would wipe its level patterns.
+                        guard config.fileTypes?[ext] == nil else {
+                            newExtension = ""
+                            return
+                        }
                         config.fileTypes?[ext] = FileTypeConfig()
                         newExtension = ""
                     }
@@ -2474,7 +2705,10 @@ struct SettingsView: View {
             Section {
                 HStack {
                     Button("Reset to Default") {
-                        config = AppConfig()
+                        // The default is the bundled default-config.json, not
+                        // `AppConfig()` — that one has no fileTypes at all, and
+                        // saving it would drop the log level patterns for good.
+                        config = ConfigLoader.bundledDefault()
                         save()
                     }
                     Spacer()
@@ -2485,6 +2719,14 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .alert(
+            "Could not save settings",
+            isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 
     private var sortedFileTypes: [(key: String, value: FileTypeConfig)] {
@@ -2524,13 +2766,21 @@ struct SettingsView: View {
         }
     }
 
+    /// The only persistence path in the app, Reset included. Swallowing the
+    /// error here would show a Save that appears to have worked while the
+    /// extension goes on reading the old file — or, if the App Group container
+    /// is unavailable, a file in a temporary directory that it never reads.
     private func save() {
-        try? loader.save(config)
+        do {
+            try loader.save(config)
+        } catch {
+            saveError = error.localizedDescription
+        }
     }
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2538,7 +2788,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/Views/SettingsView.swift
@@ -2557,7 +2807,7 @@ git commit -m "feat: implement SettingsView with global and per-extension config
 - Create: `AllYouNeedQuickLook/SampleFiles/sample.log`
 - Create: `AllYouNeedQuickLook/SampleFiles/sample.ipynb`
 
-- [ ] **Step 1: Create sample files**
+- [x] **Step 1: Create sample files**
 
 `AllYouNeedQuickLook/SampleFiles/sample.md`:
 
@@ -2708,7 +2958,7 @@ Special characters: <html> & "quotes"
 }
 ```
 
-- [ ] **Step 2: Create PreviewWebViewRepresentable**
+- [x] **Step 2: Create PreviewWebViewRepresentable**
 
 ```swift
 // AllYouNeedQuickLook/Views/PreviewWebViewRepresentable.swift
@@ -2717,21 +2967,42 @@ import Shared
 
 struct PreviewWebViewRepresentable: NSViewRepresentable {
     let html: String
+    let nonce: String
     let resourcesURL: URL?
+
+    /// Remembers what the web view is already showing.
+    ///
+    /// SwiftUI calls `updateNSView` on every state invalidation, not only when
+    /// `html` changes. Reloading unconditionally tore down and re-parsed the
+    /// whole document each time — and since the libraries were inlined, that
+    /// document is ~475 KB of minified JS, with a visible flash.
+    final class Coordinator {
+        var loadedHTML: String?
+        var loadedResourcesURL: URL?
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> PreviewWebView {
         let webView = PreviewWebView()
-        webView.loadHTML(html, resourcesURL: resourcesURL)
+        loadIfNeeded(webView, context.coordinator)
         return webView
     }
 
     func updateNSView(_ webView: PreviewWebView, context: Context) {
-        webView.loadHTML(html, resourcesURL: resourcesURL)
+        loadIfNeeded(webView, context.coordinator)
+    }
+
+    private func loadIfNeeded(_ webView: PreviewWebView, _ coordinator: Coordinator) {
+        guard coordinator.loadedHTML != html || coordinator.loadedResourcesURL != resourcesURL else { return }
+        coordinator.loadedHTML = html
+        coordinator.loadedResourcesURL = resourcesURL
+        webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
     }
 }
 ```
 
-- [ ] **Step 3: Implement PreviewView**
+- [x] **Step 3: Implement PreviewView**
 
 ```swift
 // AllYouNeedQuickLook/Views/PreviewView.swift
@@ -2755,16 +3026,28 @@ struct PreviewView: View {
 
     @State private var selectedSample: SampleFile?
 
+    /// The rendered document, recomputed when the selection changes.
+    ///
+    /// Rendering inside `body` re-read the sample from disk, re-read
+    /// `config.json` from the App Group and rebuilt the whole ~475 KB template
+    /// on *every* body evaluation, handing the web view a fresh string each
+    /// time. Doing it here means one render per selection.
+    @State private var renderedHTML: String?
+
+    private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
+
     var body: some View {
         NavigationSplitView {
-            List(samples, selection: $selectedSample) { sample in
-                Label(sample.name, systemImage: iconForExtension(sample.ext))
-                    .tag(sample)
+            List(selection: $selectedSample) {
+                ForEach(samples) { sample in
+                    Label(sample.name, systemImage: iconForExtension(sample.ext))
+                        .tag(sample)
+                }
             }
             .navigationTitle("Samples")
         } detail: {
-            if let sample = selectedSample {
-                previewContent(for: sample)
+            if let html = renderedHTML {
+                PreviewWebViewRepresentable(html: html, resourcesURL: Self.resourcesURL)
             } else {
                 ContentUnavailableView(
                     "Select a Sample File",
@@ -2773,10 +3056,12 @@ struct PreviewView: View {
                 )
             }
         }
+        .onChange(of: selectedSample) { _, sample in
+            renderedHTML = sample.map(Self.render)
+        }
     }
 
-    @ViewBuilder
-    private func previewContent(for sample: SampleFile) -> some View {
+    private static func render(_ sample: SampleFile) -> String {
         let content = loadSampleContent(sample.name)
         let config = ConfigLoader().load()
         let renderer: Renderer = switch sample.ext {
@@ -2784,13 +3069,10 @@ struct PreviewView: View {
         case "ipynb": NotebookRenderer()
         default: PlainTextRenderer()
         }
-        let html = renderer.render(content: content, config: config, fileExtension: sample.ext)
-        let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
-
-        PreviewWebViewRepresentable(html: html, resourcesURL: resourcesURL)
+        return renderer.render(content: content, config: config, fileExtension: sample.ext)
     }
 
-    private func loadSampleContent(_ name: String) -> String {
+    private static func loadSampleContent(_ name: String) -> String {
         guard let url = Bundle.main.url(forResource: name, withExtension: nil)
                 ?? Bundle.main.url(
                     forResource: (name as NSString).deletingPathExtension,
@@ -2814,7 +3096,7 @@ struct PreviewView: View {
 }
 ```
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
@@ -2822,7 +3104,7 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add AllYouNeedQuickLook/Views/ AllYouNeedQuickLook/SampleFiles/
@@ -2833,15 +3115,15 @@ git commit -m "feat: implement PreviewView with bundled sample files and live re
 
 ## Task 17: End-to-End Build and Manual Verification
 
-- [ ] **Step 1: Run all unit tests**
+- [x] **Step 1: Run all unit tests**
 
 ```bash
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination "platform=macOS"
 ```
 
-Expected: All tests PASS (30 total: ConfigSchema 3, ConfigLoader 3, HTMLTemplate 5, ANSIConverter 5, MarkdownRenderer 4, PlainTextRenderer 7, NotebookSchema 2, NotebookRenderer 8)
+Expected: `** TEST SUCCEEDED **` with 0 failures. The count grows as tests are added — 97 as of the host-app UI branch — so read the failure count, not the total.
 
-- [ ] **Step 2: Build release archive**
+- [x] **Step 2: Build release archive**
 
 ```bash
 xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -configuration Release -destination "platform=macOS" build
@@ -2849,7 +3131,17 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -c
 
 Expected: BUILD SUCCEEDED
 
-- [ ] **Step 3: Manual test checklist**
+- [ ] **Step 3: Manual test checklist** — **sub-items 1, 2 and 3 done; sub-item 4
+  (dark mode) is left to the repository owner.**
+
+  1, 2 and 3 were driven against the Release build and screenshotted: Welcome tab,
+  Settings tab (including "Reset to Default", after which `log` and `txt` are still
+  listed), and all four samples in the Preview tab — highlighted markdown fence,
+  inline and block KaTeX, log level colours, notebook cells with the sine PNG and
+  the ANSI traceback.
+
+  Sub-item 4 asks for the machine's appearance to be toggled, which is a system
+  setting, so an agent does not perform it — same rule as step 4 below.
 
 Open the built app and verify:
 
@@ -2862,14 +3154,57 @@ Open the built app and verify:
    - `sample.ipynb`: markdown cell, code cells with highlighting, error traceback with colors, HTML output
 4. **Dark mode** — toggle system appearance, verify all previews switch themes
 
-- [ ] **Step 4: Test QuickLook extension**
+- [x] **Step 4: Test QuickLook extension** — run by the owner (enabling the extension)
+  together with an agent (building, installing, observing). It found two defects that
+  nothing else in this repo covers, which is the point of the step.
+
+  The host app's Preview tab exercises `Shared/` (renderers, template, `PreviewWebView`)
+  but **not** `PreviewViewController`, `QLSupportedContentTypes`, or the
+  `org.jupyter.notebook` exported UTType.
 
 1. Enable extension in System Settings > Extensions > Quick Look
 2. In Finder, select a `.md` file and press Space
 3. Verify rendered markdown appears in QuickLook panel
 4. Repeat with `.txt`, `.log`, and `.ipynb` files
 
-- [ ] **Step 5: Final commit**
+**Result.** `.md`, `.ipynb` and `.log` render through the extension. `.txt` does not —
+see below. Two defects were found and fixed:
+
+- `QLSupportedContentTypes` was emitted at the top level of the extension's
+  `Info.plist`. QuickLook only reads it from `NSExtension > NSExtensionAttributes`, so
+  the appex declared no supported types, `quicklookd` never considered it for any file,
+  and it did not even log a rejection. Every file type fell back to the system preview.
+- Declaring only an ancestor type is not enough. `.log` files resolve to `com.apple.log`;
+  with just `public.plain-text` declared, the system's own text preview won. Declaring
+  `com.apple.log` explicitly makes the extension win.
+
+**`.txt` cannot currently be overridden.** Its type *is* `public.plain-text`, which we
+already declare — the system's built-in text preview declares the same type and takes
+precedence. That leaves the spec's "Text & Logs (.txt, .log, …)" claim only partly true
+in Finder: the host app's Preview tab renders `.txt` with the configured formatting, the
+QuickLook extension does not. Any other text-ish extension can be supported by adding
+its concrete UTType to `QLSupportedContentTypes`.
+
+**Two prerequisites that are not obvious.** The extension will not register unless the
+app bundle is actually code-signed — `CODE_SIGNING_ALLOWED: NO` leaves only the linker's
+ad-hoc signature, which PlugInKit ignores (`codesign -v` reports "code object is not
+signed at all"). And every build location that has been launched registers its own copy,
+so repeated builds fill the System Settings list with duplicates; unregister the stale
+ones with `lsregister -u <path>`.
+
+The signing prerequisite is now handled by the build. `scripts/adhoc-sign.sh` runs as a
+post-build phase on the app target and signs inside-out: framework, appex (with its
+entitlements), app. Turning Xcode's own signing back on was tried first and does not
+work — with the App Group entitlement present the build system demands a provisioning
+profile ("requires a provisioning profile. Enable development signing..."), which would
+bind the project to one developer's team. `codesign` raises no such objection to an
+ad-hoc signature carrying those entitlements. Verified: a plain `xcodebuild` of the
+Release configuration now produces a bundle whose extension registers on its own, with
+`pluginkit` showing it enabled and no manual signing step. This unblocks the spec's
+Phase 1 unsigned GitHub Release — before the fix, a downloaded build would never have
+registered.
+
+- [x] **Step 5: Final commit**
 
 ```bash
 git add -A

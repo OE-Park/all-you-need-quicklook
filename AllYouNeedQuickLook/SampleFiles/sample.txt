@@ -1,0 +1,9 @@
+This is a plain text file for testing QuickLook preview.
+
+It demonstrates basic text rendering with configurable formatting.
+Line numbers, font family, font size, and line height can all be
+customized through the Settings tab.
+
+    Indented text should preserve its whitespace.
+
+Special characters: <html> & "quotes"

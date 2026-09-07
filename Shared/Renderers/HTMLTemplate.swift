@@ -3,22 +3,26 @@ import Foundation
 
 public enum HTMLTemplate {
 
-    public static let scriptNoncePlaceholder = "__AYNQL_SCRIPT_NONCE__"
-
+    /// Composes a complete preview document.
+    ///
+    /// `nonce` must be the same `PreviewWebView.makeNonce()` value that is
+    /// passed to `PreviewWebView.loadHTML(_:resourcesURL:nonce:)` for this
+    /// document. `script-src` names that nonce and nothing else, so an
+    /// unstamped or mismatched `<script>` — including every one of the three
+    /// bundled libraries below — simply does not run.
     public static func wrap(
         body: String,
         rendererType: String,
+        nonce: String,
         customCSS: String = ""
     ) -> String {
-        let scriptNonce = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let trustedBody = body.replacingOccurrences(of: scriptNoncePlaceholder, with: scriptNonce)
-        return """
+        """
         <!DOCTYPE html>
         <html lang="en">
         <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="\(PreviewWebView.contentSecurityPolicy(nonce: nonce))">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'nonce-\(scriptNonce)'; style-src 'self' 'unsafe-inline'; img-src data: quicklook-image:; font-src data: 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
         <style>
         :root {
             --bg: #ffffff;
@@ -104,16 +108,28 @@ public enum HTMLTemplate {
         }
         \(customCSS)
         </style>
-        <link rel="stylesheet" href="katex.min.css">
-        <link rel="stylesheet" href="highlight-light.min.css" media="(prefers-color-scheme: light)">
-        <link rel="stylesheet" href="highlight-dark.min.css" media="(prefers-color-scheme: dark)">
-        <script src="marked.min.js"></script>
-        <script src="highlight.min.js"></script>
-        <script src="katex.min.js"></script>
+        <style>
+        \(katexCSS)
+        </style>
+        <style media="(prefers-color-scheme: light)">
+        \(highlightLightCSS)
+        </style>
+        <style media="(prefers-color-scheme: dark)">
+        \(highlightDarkCSS)
+        </style>
+        <script nonce="\(nonce)">
+        \(markedJS)
+        </script>
+        <script nonce="\(nonce)">
+        \(highlightJS)
+        </script>
+        <script nonce="\(nonce)">
+        \(katexJS)
+        </script>
         </head>
         <body class="\(rendererType)">
-        \(trustedBody)
-        <script nonce="\(scriptNonce)">
+        \(body)
+        <script nonce="\(nonce)">
         document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('click', function(event) {
                 var anchor = event.target.closest('a[href^="#"]');
@@ -160,5 +176,67 @@ public enum HTMLTemplate {
         </body>
         </html>
         """
+    }
+
+    // MARK: - Bundled libraries
+
+    /// The bundled libraries are inlined into the document rather than linked
+    /// with `<script src>` / `<link href>`.
+    ///
+    /// `PreviewWebView` hands the document to WebKit via
+    /// `loadHTMLString(_:baseURL:)`. That document gets an opaque origin and
+    /// WebKit grants it no read access to the file:// `baseURL` directory, so
+    /// *every* relative subresource fails to load — verified to fail with the
+    /// Content Security Policy removed entirely, and with `'self'` and `file:`
+    /// added to it. Inlining is the only form that loads, and it also makes the
+    /// intended inline-only policy literally true.
+    ///
+    /// Read once per process: the payload is ~470 KB and identical for every
+    /// preview.
+    static let katexCSS = bundledCSS("katex.min").replacingOccurrences(of: "url(fonts/", with: "url(quicklook-resource://bundle/")
+    static let highlightLightCSS = bundledCSS("highlight-light.min")
+    static let highlightDarkCSS = bundledCSS("highlight-dark.min")
+    static let markedJS = bundledJS("marked.min")
+    static let highlightJS = bundledJS("highlight.min")
+    static let katexJS = bundledJS("katex.min")
+
+    private final class BundleToken {}
+
+    /// Text of a resource bundled in the Shared framework; empty when missing.
+    private static func bundledResource(_ name: String, _ ext: String) -> String {
+        guard let url = Bundle(for: BundleToken.self).url(forResource: name, withExtension: ext),
+              let text = try? String(contentsOf: url, encoding: .utf8)
+        else { return "" }
+        return text
+    }
+
+    /// CSS ready to drop inside a `<style>` element. `<style>` is RAWTEXT, so
+    /// only a literal `</style` closes it; `<\/style` is the same sequence to a
+    /// CSS string or identifier, where alone it could legally appear.
+    private static func bundledCSS(_ name: String) -> String {
+        bundledResource(name, "css")
+            .replacingOccurrences(of: "</style", with: "<\\/style", options: [.caseInsensitive])
+    }
+
+    /// JavaScript ready to drop inside a `<script>` element.
+    ///
+    /// Two sequences are neutralised, and both replacements are the same string
+    /// to a JS string, template or regular-expression literal:
+    ///
+    /// - `</script` ends the element from the script-data state. `\/` is a legal
+    ///   escape in every one of those contexts, unicode-mode regexes included.
+    /// - `<!--` moves the tokenizer into script-data-escaped, and a later
+    ///   `<script` with no intervening `-->` moves it into
+    ///   script-data-double-escaped, where the element's real `</script>` no
+    ///   longer closes it. `\x21` is used rather than `\!` because `\!` is not a
+    ///   legal identity escape inside a unicode-mode regex literal.
+    ///
+    /// marked.min.js and highlight.min.js already contain `<!--` today (both
+    /// closed, so neither is exploitable) — this keeps a library bump from
+    /// making that matter.
+    private static func bundledJS(_ name: String) -> String {
+        bundledResource(name, "js")
+            .replacingOccurrences(of: "</script", with: "<\\/script", options: [.caseInsensitive])
+            .replacingOccurrences(of: "<!--", with: "<\\x21--")
     }
 }
