@@ -21,6 +21,7 @@ public enum HTMLTemplate {
         <html lang="en">
         <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="\(PreviewWebView.contentSecurityPolicy(nonce: nonce))">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
         :root {
@@ -128,6 +129,50 @@ public enum HTMLTemplate {
         </head>
         <body class="\(rendererType)">
         \(body)
+        <script nonce="\(nonce)">
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('click', function(event) {
+                var anchor = event.target.closest('a[href^="#"]');
+                if (!anchor) {
+                    return;
+                }
+                event.preventDefault();
+                var fragment = anchor.getAttribute('href');
+                var targetID;
+                try {
+                    targetID = decodeURIComponent(fragment.slice(1));
+                } catch (error) {
+                    return;
+                }
+                var target = document.getElementById(targetID);
+                history.replaceState(null, '', document.URL.split('#')[0] + fragment);
+                if (target) {
+                    target.scrollIntoView();
+                }
+            });
+
+            document.querySelectorAll('img[src]').forEach(function(image) {
+                var source;
+                try {
+                    source = new URL(image.getAttribute('src'), document.baseURI);
+                } catch (error) {
+                    return;
+                }
+                if (source.protocol !== 'http:' && source.protocol !== 'https:') {
+                    return;
+                }
+
+                image.addEventListener('error', function() {
+                    var placeholder = document.createElement('div');
+                    placeholder.className = 'placeholder-image';
+                    placeholder.textContent = 'Image unavailable';
+                    image.replaceWith(placeholder);
+                }, { once: true });
+                image.src = 'quicklook-image://fetch/?url=' + encodeURIComponent(source.href);
+            });
+            document.documentElement.dataset.quicklookReady = 'true';
+        });
+        </script>
         </body>
         </html>
         """
@@ -148,7 +193,7 @@ public enum HTMLTemplate {
     ///
     /// Read once per process: the payload is ~470 KB and identical for every
     /// preview.
-    static let katexCSS = bundledCSS("katex.min")
+    static let katexCSS = bundledCSS("katex.min").replacingOccurrences(of: "url(fonts/", with: "url(quicklook-resource://bundle/")
     static let highlightLightCSS = bundledCSS("highlight-light.min")
     static let highlightDarkCSS = bundledCSS("highlight-dark.min")
     static let markedJS = bundledJS("marked.min")

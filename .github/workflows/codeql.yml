@@ -47,11 +47,13 @@ jobs:
             -project AllYouNeedQuickLook.xcodeproj \
             -scheme AllYouNeedQuickLook \
             -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
             build
           xcodebuild \
             -project AllYouNeedQuickLook.xcodeproj \
             -scheme Tests \
             -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
             build-for-testing
 
       - name: Perform CodeQL analysis

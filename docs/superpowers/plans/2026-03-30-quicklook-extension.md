@@ -10,6 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-30-quicklook-extension-design.md`
 
+> **PR integration override (2026-09-07):** Current source uses explicit nonce
+> plumbing and inline JS/CSS from the host branch, plus main's timeout-controlled
+> image proxy and private bundled-font scheme. Historical snippets and completed
+> checks below describe their original trees. The current merge passed 130 tests
+> and the host build; current-build Finder validation remains pending.
+
 **Security Note — actual threat model:** A previewed file **cannot run script.** That is
 enforced rather than asserted: `script-src` names one fresh per-document nonce and nothing
 else. It is written down here so nobody re-derives it from the code — and because an
@@ -289,16 +295,63 @@ struct AllYouNeedQuickLookApp: App {
 // QuickLookExtension/PreviewViewController.swift
 import Cocoa
 import Quartz
+import WebKit
+import Shared
 
 class PreviewViewController: NSViewController, QLPreviewingController {
+
+    private var webView: PreviewWebView!
+
     override var nibName: NSNib.Name? { nil }
 
     override func loadView() {
-        self.view = NSView()
+        let config = ConfigLoader().load()
+        webView = PreviewWebView(
+            frame: NSRect(x: 0, y: 0, width: 600, height: 400),
+            imageTimeoutSeconds: TimeInterval(config.global.imageTimeoutSeconds)
+        )
+        webView.autoresizingMask = [.width, .height]
+        self.view = webView
     }
 
     func preparePreviewOfFile(at url: URL) async throws {
-        // TODO: implement in Task 12
+        let content: String
+        if let utf8 = try? String(contentsOf: url, encoding: .utf8) {
+            content = utf8
+        } else if let latin1 = try? String(contentsOf: url, encoding: .isoLatin1) {
+            content = latin1
+        } else {
+            content = try String(contentsOf: url, encoding: .utf8)
+        }
+
+        let fileExtension = url.pathExtension.lowercased()
+        let config = ConfigLoader().load()
+
+        let renderer: Renderer = switch fileExtension {
+        case "md", "markdown":
+            MarkdownRenderer()
+        case "ipynb":
+            NotebookRenderer()
+        default:
+            PlainTextRenderer()
+        }
+
+        // One nonce per document, generated here and handed to both halves:
+        // the renderer stamps it on the `<script>` elements it emits, and the
+        // web view arms `script-src 'nonce-…'` with the same value.
+        let nonce = PreviewWebView.makeNonce()
+        let html = renderer.render(
+            content: content, config: config, fileExtension: fileExtension, nonce: nonce
+        )
+
+        let resourcesURL = Bundle(for: PreviewWebView.self).resourceURL
+            ?? Bundle(for: Self.self).resourceURL
+            ?? Bundle.main.resourceURL
+
+        await MainActor.run {
+            _ = self.view
+            webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
+        }
     }
 }
 ```
@@ -2376,10 +2429,107 @@ struct SettingsView: View {
 ```swift
 // AllYouNeedQuickLook/Views/PreviewView.swift
 import SwiftUI
+import Shared
 
 struct PreviewView: View {
+
+    struct SampleFile: Identifiable, Hashable {
+        let id: String
+        let name: String
+        let ext: String
+    }
+
+    private let samples: [SampleFile] = [
+        SampleFile(id: "md", name: "sample.md", ext: "md"),
+        SampleFile(id: "txt", name: "sample.txt", ext: "txt"),
+        SampleFile(id: "log", name: "sample.log", ext: "log"),
+        SampleFile(id: "ipynb", name: "sample.ipynb", ext: "ipynb"),
+    ]
+
+    @State private var selectedSample: SampleFile?
+
+    /// The rendered document, recomputed when the selection changes.
+    ///
+    /// Rendering inside `body` re-read the sample from disk, re-read
+    /// `config.json` from the App Group and rebuilt the whole ~475 KB template
+    /// on *every* body evaluation, handing the web view a fresh string each
+    /// time. Doing it here means one render per selection.
+    @State private var rendered: RenderedSample?
+
+    /// A composed document and the nonce it was composed with. The two are
+    /// inseparable: `PreviewWebView` arms `script-src` with this nonce, so a
+    /// document paired with any other one renders blank.
+    struct RenderedSample: Equatable {
+        let html: String
+        let nonce: String
+    }
+
+    private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
+
     var body: some View {
-        Text("Preview — placeholder")
+        NavigationSplitView {
+            List(selection: $selectedSample) {
+                ForEach(samples) { sample in
+                    Label(sample.name, systemImage: iconForExtension(sample.ext))
+                        .tag(sample)
+                }
+            }
+            .navigationTitle("Samples")
+        } detail: {
+            if let rendered {
+                PreviewWebViewRepresentable(
+                    html: rendered.html, nonce: rendered.nonce, resourcesURL: Self.resourcesURL
+                )
+            } else {
+                ContentUnavailableView(
+                    "Select a Sample File",
+                    systemImage: "doc",
+                    description: Text("Choose a file from the sidebar to preview.")
+                )
+            }
+        }
+        .onChange(of: selectedSample) { _, sample in
+            rendered = sample.map(Self.render)
+        }
+    }
+
+    private static func render(_ sample: SampleFile) -> RenderedSample {
+        let content = loadSampleContent(sample.name)
+        let config = ConfigLoader().load()
+        let renderer: Renderer = switch sample.ext {
+        case "md", "markdown": MarkdownRenderer()
+        case "ipynb": NotebookRenderer()
+        default: PlainTextRenderer()
+        }
+        let nonce = PreviewWebView.makeNonce()
+        return RenderedSample(
+            html: renderer.render(
+                content: content, config: config, fileExtension: sample.ext, nonce: nonce
+            ),
+            nonce: nonce
+        )
+    }
+
+    private static func loadSampleContent(_ name: String) -> String {
+        guard let url = Bundle.main.url(forResource: name, withExtension: nil)
+                ?? Bundle.main.url(
+                    forResource: (name as NSString).deletingPathExtension,
+                    withExtension: (name as NSString).pathExtension
+                ),
+              let content = try? String(contentsOf: url, encoding: .utf8) else {
+            return "Error: Could not load \(name)"
+        }
+        return content
+    }
+
+    private func iconForExtension(_ ext: String) -> String {
+        switch ext {
+        case "md": return "doc.richtext"
+        case "txt": return "doc.text"
+        case "log": return "terminal"
+        case "ipynb": return "tablecells"
+        default: return "doc"
+        }
     }
 }
 ```
@@ -2814,6 +2964,7 @@ import Shared
 
 struct PreviewWebViewRepresentable: NSViewRepresentable {
     let html: String
+    let nonce: String
     let resourcesURL: URL?
 
     /// Remembers what the web view is already showing.
@@ -2843,7 +2994,7 @@ struct PreviewWebViewRepresentable: NSViewRepresentable {
         guard coordinator.loadedHTML != html || coordinator.loadedResourcesURL != resourcesURL else { return }
         coordinator.loadedHTML = html
         coordinator.loadedResourcesURL = resourcesURL
-        webView.loadHTML(html, resourcesURL: resourcesURL)
+        webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
     }
 }
 ```

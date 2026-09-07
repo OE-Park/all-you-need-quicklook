@@ -141,8 +141,8 @@ final class PreviewWebViewCSPTests: XCTestCase {
     // MARK: - Deliberate allowances
 
     func testPolicyKeepsExternalImagesAndDataURIFonts() throws {
-        XCTAssertEqual(try directive("img-src"), ["data:", "http:", "https:"])
-        XCTAssertEqual(try directive("font-src"), ["data:"])
+        XCTAssertEqual(try directive("img-src"), ["data:", "quicklook-image:"])
+        XCTAssertEqual(try directive("font-src"), ["data:", "quicklook-resource://bundle"])
     }
 
     /// Nothing but `script-src` changed when the nonce arrived.

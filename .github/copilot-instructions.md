@@ -28,12 +28,12 @@ On Ubuntu (this agent): edit Swift/YAML, keep tests compiling in your head, leav
 |------|------|
 | `project.yml` | XcodeGen spec. Source of truth for targets, UTTypes, entitlements. |
 | `Shared/` | Framework used by host + extension. Models, ConfigLoader, renderers, HTML template. |
-| `QuickLookExtension/` | `QLPreviewingController` entry. Still a stub until Task 12. |
+| `QuickLookExtension/` | `QLPreviewingController` entry and file-to-renderer routing. |
 | `AllYouNeedQuickLook/` | SwiftUI host. `App.swift` is still a placeholder until Tasks 13–16. |
 | `Tests/` | XCTest against `Shared`. |
-| `docs/superpowers/` | Design spec + implementation plan (Tasks 1–17). Tasks 1–8 are done. |
+| `docs/superpowers/` | Design spec + implementation plan (Tasks 1–17). Tasks 1–12 are done. |
 
-Next unfinished plan task: **Task 9 `NotebookRenderer`**.
+Next unfinished plan task: **Task 13 `Host App UI`**.
 
 ## Conventions
 
@@ -41,5 +41,5 @@ Next unfinished plan task: **Task 9 `NotebookRenderer`**.
 - Renderers implement `Renderer.render(content:config:fileExtension:) -> String` and wrap via `HTMLTemplate.wrap`.
 - TDD as the plan writes it: failing test, implement, pass, commit that task only.
 - Do not add SwiftPM, CocoaPods, or new targets unless the plan says so. JS libraries (marked, highlight.js, KaTeX) are vendored in Task 11.
-- PreviewWebView CSP as first written (`script-src 'unsafe-inline'` only) will block `<script src>` / `<link>` in `HTMLTemplate`. When implementing Task 10, allow `'self'` (or equivalent) so bundled JS/CSS/fonts load.
-- Resource `baseURL` must be the Shared bundle (`Bundle(for: ConfigLoader.self)`), not the extension or host bundle.
+- PreviewWebView serves bundled JS/CSS/fonts through the `quicklook-resource:` scheme and external images through `quicklook-image:`. Keep both schemes constrained by CSP.
+- Pass the Shared bundle resource URL (`Bundle(for: ConfigLoader.self)`); `PreviewWebView` exposes it only through the bundled-resource scheme handler.

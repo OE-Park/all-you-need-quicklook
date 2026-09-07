@@ -75,7 +75,7 @@ final class HTMLTemplateTests: XCTestCase {
         // also occurs inside the minified library sources themselves. Three
         // openings to match the three `</script>` closings
         // `testInlinedLibrariesCannotEscapeTheirElement` pins.
-        XCTAssertEqual(html.components(separatedBy: "<script nonce=\"\(nonce)\">").count - 1, 3,
+        XCTAssertEqual(html.components(separatedBy: "<script nonce=\"\(nonce)\">").count - 1, 4,
                        "a bundled library <script> is missing this document's nonce")
     }
 
@@ -86,5 +86,34 @@ final class HTMLTemplateTests: XCTestCase {
         let html = HTMLTemplate.wrap(body: "", rendererType: "markdown", nonce: nonce)
         XCTAssertFalse(html.contains("<script src="), "template still links external JS")
         XCTAssertFalse(html.contains("<link rel=\"stylesheet\""), "template still links external CSS")
+    }
+
+    func testTemplateCSPAllowsOnlyBundledAndNoncedScripts() {
+        let html = HTMLTemplate.wrap(
+            body: "<script nonce=\"\(nonce)\">trusted()</script>",
+            rendererType: "markdown", nonce: nonce
+        )
+        let nonce = cspNonce(in: html)
+
+        XCTAssertTrue(html.contains("http-equiv=\"Content-Security-Policy\""))
+        XCTAssertNotNil(nonce)
+        XCTAssertTrue(html.contains("script-src 'nonce-\(nonce ?? "")'"))
+        XCTAssertTrue(html.contains("<script nonce=\"\(nonce ?? "")\">trusted()</script>"))
+        XCTAssertFalse(html.contains("script-src 'unsafe-inline'"))
+        XCTAssertTrue(html.contains("default-src 'none'"))
+
+    }
+
+    func testTemplateUsesUniqueNoncePerDocument() {
+        let first = HTMLTemplate.wrap(body: "", rendererType: "markdown", nonce: PreviewWebView.makeNonce())
+        let second = HTMLTemplate.wrap(body: "", rendererType: "markdown", nonce: PreviewWebView.makeNonce())
+
+        XCTAssertNotEqual(cspNonce(in: first), cspNonce(in: second))
+    }
+
+    private func cspNonce(in html: String) -> String? {
+        let prefix = "script-src 'nonce-"
+        guard let suffix = html.range(of: prefix)?.upperBound else { return nil }
+        return html[suffix...].split(separator: "'", maxSplits: 1).first.map(String.init)
     }
 }
