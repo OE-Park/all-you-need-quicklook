@@ -5,6 +5,13 @@ the render-time feature set is complete.
 
 ## Start here
 
+**Current handoff:** the owner will validate PR #10 with web Copilot. This
+session is closed after installing the repaired host and preparing the
+[AI handoff](../validation/2026-09-07-handoff.md). Read it first. Do not start
+the future render-time task or merge PR #10 without a subsequent request.
+The continuation prompt at the end of this document is for future feature
+work, not the current PR review.
+
 1. Confirm worktree, branch, HEAD and dirty files. Read `AGENTS.md` and applicable
    `.github/` instructions from that checkout.
 2. Read the [pattern contract](reviews/2026-09-07-pattern-execution-and-matching.md).

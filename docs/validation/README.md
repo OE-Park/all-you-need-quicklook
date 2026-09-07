@@ -9,3 +9,4 @@
 Obsidian `Knowledge/07_DevArchive/`에 기록하고 해당 보고서를 연결한다.
 
 - [2026-09-07 다크 모드와 호스트 Preview 복구](2026-09-07-dark-mode.md)
+- [2026-09-07 작업 종료·AI 인계](2026-09-07-handoff.md)
