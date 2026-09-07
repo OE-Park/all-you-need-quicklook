@@ -16,9 +16,9 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 PR integration (2026-09-07): main's timeout-controlled external image handler,
 font resource scheme, escaping helpers, and regression tests are retained with
 the host branch's explicit per-document nonce API and inline JS/CSS. 130 local
-tests and the host build pass. Current-build Finder verification is pending:
-the system keeps choosing the older /Applications installation. Historical
-Finder checks below do not validate this merged tree.
+tests and the host build pass. Finder Space checks passed for .md, .ipynb and .log on this merged build;
+the extension executable path was verified after temporarily unregistering
+older copies with owner approval, then restoring their registrations.
 
 
 Tasks 1–12 are on `main`. Tasks 13–17 are on `feat/host-app-ui`: the host app

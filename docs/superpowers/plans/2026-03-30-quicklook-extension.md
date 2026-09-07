@@ -14,7 +14,10 @@
 > plumbing and inline JS/CSS from the host branch, plus main's timeout-controlled
 > image proxy and private bundled-font scheme. Historical snippets and completed
 > checks below describe their original trees. The current merge passed 130 tests
-> and the host build; current-build Finder validation remains pending.
+> and the host build. Finder Space checks of .md/.ipynb/.log also passed on
+> this build after verifying its running extension path; previous registrations
+> were restored after the owner-approved temporary isolation. Dark-mode switching
+> remains the historical owner check, not part of this conflict validation.
 
 **Security Note — actual threat model:** A previewed file **cannot run script.** That is
 enforced rather than asserted: `script-src` names one fresh per-document nonce and nothing
