@@ -43,6 +43,24 @@ final class MarkdownRendererTests: XCTestCase {
     func testDoesNotRewriteScriptureWord() {
         let md = "read </scripture> later"
         let html = renderer.render(content: md, config: config, fileExtension: "md")
-        XCTAssertTrue(html.contains("</scripture>"))
+        XCTAssertTrue(html.contains("<\\/scripture>"))
+    }
+
+    func testEscapesRawHTMLTokensBeforeInsertion() {
+        let html = renderer.render(
+            content: "<img src=x onerror=alert(1)>",
+            config: config,
+            fileExtension: "md"
+        )
+
+        XCTAssertTrue(html.contains("renderer.html"))
+        XCTAssertTrue(html.contains("escapeHTML(token.text)"))
+    }
+
+    func testHighlightsParsedCodeBlocksWithCurrentHighlightJSAPI() {
+        let html = renderer.render(content: "```swift\nlet x = 1\n```", config: config, fileExtension: "md")
+
+        XCTAssertTrue(html.contains("hljs.highlightElement"))
+        XCTAssertFalse(html.contains("highlight: function"))
     }
 }

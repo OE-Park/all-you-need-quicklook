@@ -13,7 +13,7 @@ xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destinatio
 
 ## Status
 
-Plan tasks 1–8 are on `main`. Task 9 `NotebookRenderer` is on `feat/notebook-renderer` (review clean). Next is Task 10 `PreviewWebView`.
+Plan tasks 1–12 are on `main`. Next is Task 13 `Host App UI`.
 
 ## Hard rules
 

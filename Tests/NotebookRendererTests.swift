@@ -46,7 +46,8 @@ final class NotebookRendererTests: XCTestCase {
         {"cell_type":"code","metadata":{},"source":[""],"execution_count":2,"outputs":[{"output_type":"execute_result","execution_count":2,"metadata":{},"data":{"text/html":["<b>bold</b>"],"text/plain":["bold"]}}]}
         """)
         let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
-        XCTAssertTrue(html.contains("<b>bold</b>"))
+        XCTAssertFalse(html.contains("<b>bold</b>"))
+        XCTAssertTrue(html.contains("&lt;b&gt;bold&lt;/b&gt;"))
     }
 
     func testErrorOutput() {
@@ -74,6 +75,49 @@ final class NotebookRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("In [42]"))
     }
 
+    func testRawCellRendered() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"raw","metadata":{},"source":["raw text content"]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+        XCTAssertTrue(html.contains("raw text content"))
+    }
+
+    func testJPEGImageOutput() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":null,"outputs":[{"output_type":"display_data","metadata":{},"data":{"image/jpeg":"/9j/4AAQSkZJRg==","text/plain":["<Figure>"]}}]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+        XCTAssertTrue(html.contains("data:image/jpeg;base64,/9j/4AAQSkZJRg=="))
+    }
+
+    func testCodeCellWithoutExecutionCountShowsEmptyBracket() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"code","metadata":{},"source":["a = 1"],"execution_count":null,"outputs":[]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+        XCTAssertTrue(html.contains("In [ ]"))
+    }
+
+    func testStreamOutputHTMLEscaped() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":1,"outputs":[{"output_type":"stream","name":"stdout","text":["<script>alert(1)</script>"]}]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+        XCTAssertFalse(html.contains("<script>alert(1)</script>"))
+        XCTAssertTrue(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
+    }
+
+    func testStreamOutputEscapesApostrophe() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":1,"outputs":[{"output_type":"stream","name":"stdout","text":["it's unsafe"]}]}
+        """)
+
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+
+        XCTAssertTrue(html.contains("it&#39;s unsafe"))
+    }
+
     func testBase64ImageEscapesQuotes() {
         let json = makeNotebookJSON(cells: """
         {"cell_type":"code","metadata":{},"source":[""],"execution_count":null,"outputs":[{"output_type":"display_data","metadata":{},"data":{"image/png":"bad\\"><script>alert(1)</script>","text/plain":[""]}}]}
@@ -87,5 +131,15 @@ final class NotebookRendererTests: XCTestCase {
         let html = renderer.render(content: "not json at all", config: config, fileExtension: "ipynb")
         XCTAssertTrue(html.contains("notebook"))
         XCTAssertTrue(html.contains("Error")) // shows error message
+    }
+
+    func testMarkdownCodeBlocksUseCurrentHighlightJSAPI() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"markdown","metadata":{},"source":["```swift\\nlet x = 1\\n```"]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb")
+
+        XCTAssertTrue(html.contains(".markdown-cell pre code"))
+        XCTAssertFalse(html.contains("highlight: function"))
     }
 }

@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Select Xcode 26.6
         uses: maxim-lobanov/setup-xcode@v1
@@ -47,11 +47,13 @@ jobs:
             -project AllYouNeedQuickLook.xcodeproj \
             -scheme AllYouNeedQuickLook \
             -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
             build
           xcodebuild \
             -project AllYouNeedQuickLook.xcodeproj \
             -scheme Tests \
             -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
             build-for-testing
 
       - name: Perform CodeQL analysis
@@ -65,7 +67,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
