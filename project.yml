@@ -69,6 +69,8 @@ targets:
           # quicklookd never considers it for any file -- it does not even
           # log a rejection. Verified in Finder on macOS 26.
           NSExtensionAttributes:
+            QLIsDataBasedPreview: false
+            QLSupportsSearchableItems: false
             QLSupportedContentTypes:
               - public.plain-text
               - com.apple.log
@@ -111,6 +113,9 @@ targets:
       - Tests
     dependencies:
       - target: Shared
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
 
 schemes:
   AllYouNeedQuickLook:

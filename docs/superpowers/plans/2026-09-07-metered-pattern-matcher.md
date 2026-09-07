@@ -51,8 +51,9 @@ findMatches(program, text, budget)
 // { status: 'skipped', reason: 'run-limit' }            this run only; document continues
 // { status: 'incomplete', reason }                      run discarded; caller stops matching
 //     reason: 'step-budget' | 'interval-limit' | 'text-budget'
-// { status: 'rejected', reason }                        caller error, no work charged
-//     reason: 'invalid-budget' | 'invalid-text' | 'invalid-program'
+// { status: 'rejected', reason }                        caller error or engine defect
+// internal-error preserves counters already charged; caller validation charges no work
+//     reason: 'invalid-budget' | 'invalid-text' | 'invalid-program' | 'internal-error'
 ```
 
 - [x] **Step 1: Write the failing tests before the resource exists.**
@@ -803,3 +804,13 @@ Fill in during execution. Record for each task: command, log path, exit code, te
   Full suite after this pass: 148 tests, 0 failures (143 pre-existing + 5
   new). Host app and embedded extension build succeeded, ad-hoc signed; only
   warning is the pre-existing `appintentsmetadataprocessor` notice.
+
+## PR integration evidence (2026-09-07)
+
+The current API includes `internal-error` for engine defects, with already
+charged counters retained; partial results are discarded. Historical task
+listings above record their original RED/GREEN steps. Later evidence is in
+`f22f524` (plan), `184934c` (matcher), `8417ba3` (resolver), and `4b29114`
+(validation and error hardening). The review-time differential fuzz was a
+read-only probe, not a checked-in test. See HANDOFF.md for the current merge
+validation and remaining implementation scope.

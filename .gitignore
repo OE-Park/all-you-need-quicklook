@@ -7,6 +7,8 @@ build/
 
 # Local agent handoff
 .remember/
+.superpowers/
+.worktrees/
 
 # macOS
 .DS_Store

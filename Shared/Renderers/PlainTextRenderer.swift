@@ -11,7 +11,7 @@ public final class PlainTextRenderer: Renderer {
 
         let customCSS = """
         pre.plaintext-content {
-            font-family: "\(resolved.fontFamily)", monospace;
+            font-family: "\(escapeCSSString(resolved.fontFamily))", monospace;
             font-size: \(resolved.fontSize)px;
             line-height: \(resolved.lineHeight);
         }
@@ -26,7 +26,7 @@ public final class PlainTextRenderer: Renderer {
 
         let processedLines = lines.enumerated().map { index, line in
             let escapedLine = applyLogPatterns(
-                escapeHTML(line), patterns: resolved.logLevelPatterns
+                HTMLEscaper.escape(line), patterns: resolved.logLevelPatterns
             )
             if resolved.showLineNumbers {
                 let num = String(index + 1)
@@ -46,11 +46,13 @@ public final class PlainTextRenderer: Renderer {
         let escaped = ScriptEscaping.forTemplateLiteral(content)
         let escapedLanguage = ScriptEscaping.forSingleQuotedLiteral(language)
         let body = """
-        <pre class="plaintext-content"><code id="code-content" class="language-\(escapeHTML(language))"></code></pre>
+        <pre class="plaintext-content"><code id="code-content" class="language-\(HTMLEscaper.escape(language))"></code></pre>
         <script nonce="\(nonce)">
         document.addEventListener('DOMContentLoaded', function() {
             var raw = `\(escaped)`;
-            var result = hljs.highlight(raw, { language: '\(escapedLanguage)' });
+            var result = hljs.getLanguage('\(escapedLanguage)')
+                ? hljs.highlight(raw, { language: '\(escapedLanguage)' })
+                : hljs.highlightAuto(raw);
             document.getElementById('code-content').innerHTML = result.value;
         });
         </script>
@@ -78,11 +80,12 @@ public final class PlainTextRenderer: Renderer {
         return result
     }
 
-    private func escapeHTML(_ string: String) -> String {
+    private func escapeCSSString(_ string: String) -> String {
         string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "<", with: "\\3C ")
+            .replacingOccurrences(of: "\n", with: "\\A ")
+            .replacingOccurrences(of: "\r", with: "\\D ")
     }
 }

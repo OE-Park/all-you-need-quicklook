@@ -92,6 +92,14 @@ final class PreviewWebViewNavigationTests: XCTestCase {
         await assertCancels(web, .linkActivated, resources)
     }
 
+    func testBlocksSecondBlankNavigationAndUnrequestedBlankLoad() async {
+        let web = PreviewWebView()
+        await assertCancels(web, .other, URL(string: "about:blank"))
+        web.loadHTML("<html><body>x</body></html>", resourcesURL: nil, nonce: nonce)
+        await assertAllows(web, .other, URL(string: "about:blank"))
+        await assertCancels(web, .other, URL(string: "about:blank"))
+    }
+
     // MARK: - Helpers
 
     private func decide(

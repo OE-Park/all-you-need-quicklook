@@ -52,10 +52,9 @@ public final class PreviewWebView: WKWebView {
     /// be ignored in its presence by CSP2-era parsers and, more to the point,
     /// it is the thing being removed), no `'strict-dynamic'`, no host.
     ///
-    /// `img-src` keeps http/https because remote images in Markdown and notebook
-    /// output are a deliberate, spec-required allowance; `font-src data:` keeps
-    /// fonts to embedded data URIs only. `img-src` is consequently the *only*
-    /// outbound channel a previewed file has — see the plan's Security Note.
+    /// Remote images pass through the timeout-enforcing image scheme from main.
+    /// Bundled fonts retain their private resource scheme; scripts and styles
+    /// stay inline and no script supplied by a preview receives a nonce.
     ///
     /// `base-uri` and `form-action` are named explicitly because neither falls
     /// back to `default-src`: without them an injected `<base>` or `<form>`
@@ -70,7 +69,7 @@ public final class PreviewWebView: WKWebView {
     /// that invariant for the one part of the string that varies.
     public nonisolated static func contentSecurityPolicy(nonce: String) -> String {
         "default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline'; "
-        + "img-src data: http: https:; font-src data:; base-uri 'none'; form-action 'none';"
+        + "img-src data: quicklook-image:; font-src data: quicklook-resource://bundle; base-uri 'none'; form-action 'none';"
     }
 
     /// Installs `contentSecurityPolicy(nonce:)` as a `<meta http-equiv>` before the
@@ -104,7 +103,8 @@ public final class PreviewWebView: WKWebView {
         """
     }
 
-    private let imageTimeoutSeconds: TimeInterval
+    private let resourceHandler: BundledResourceSchemeHandler
+    private let imageHandler: ExternalImageSchemeHandler
 
     /// The user content controller this view's policy is installed into.
     ///
@@ -121,9 +121,14 @@ public final class PreviewWebView: WKWebView {
     public private(set) var installedNonce: String
 
     public init(frame: CGRect = .zero, imageTimeoutSeconds: TimeInterval = 3) {
-        self.imageTimeoutSeconds = imageTimeoutSeconds
+        let resourceHandler = BundledResourceSchemeHandler()
+        let imageHandler = ExternalImageSchemeHandler(timeout: imageTimeoutSeconds)
+        self.resourceHandler = resourceHandler
+        self.imageHandler = imageHandler
 
         let config = WKWebViewConfiguration()
+        config.setURLSchemeHandler(resourceHandler, forURLScheme: BundledResourceSchemeHandler.scheme)
+        config.setURLSchemeHandler(imageHandler, forURLScheme: ExternalImageSchemeHandler.scheme)
         config.preferences.setValue(false, forKey: "allowFileAccessFromFileURLs")
 
         // A policy is installed before any load, not only in `loadHTML`, so a
@@ -176,6 +181,7 @@ public final class PreviewWebView: WKWebView {
     /// we are expecting — and clearing it the moment it is allowed — is what
     /// lets `decidePolicyFor` tell the two apart.
     private var pendingLoadBaseURL: URL?
+    private var hasPendingLoad = false
 
     /// Loads `html`, first arming the policy with the same `nonce` the document
     /// stamped on its own `<script>` elements.
@@ -189,7 +195,9 @@ public final class PreviewWebView: WKWebView {
     /// only policy the document actually gets.
     public func loadHTML(_ html: String, resourcesURL: URL?, nonce: String) {
         installCSPUserScript(nonce: nonce)
+        resourceHandler.setRootURL(resourcesURL)
         pendingLoadBaseURL = resourcesURL
+        hasPendingLoad = true
         if let baseURL = resourcesURL {
             loadHTMLString(html, baseURL: baseURL)
         } else {
@@ -203,9 +211,15 @@ public final class PreviewWebView: WKWebView {
     /// directory URL, and WebKit does not promise to hand the string back
     /// byte-for-byte.
     func consumePendingLoad(of url: URL?) -> Bool {
-        guard let pending = pendingLoadBaseURL else { return false }
+        guard hasPendingLoad else { return false }
+        guard let pending = pendingLoadBaseURL else {
+            guard url == nil || url?.absoluteString == "about:blank" else { return false }
+            hasPendingLoad = false
+            return true
+        }
         guard let url, Self.sameResource(url, pending) else { return false }
         pendingLoadBaseURL = nil
+        hasPendingLoad = false
         return true
     }
 
@@ -241,7 +255,6 @@ extension PreviewWebView: WKNavigationDelegate {
         guard navigationAction.navigationType == .other else { return .cancel }
 
         let url = navigationAction.request.url
-        if url == nil || url?.absoluteString == "about:blank" { return .allow }
         return consumePendingLoad(of: url) ? .allow : .cancel
     }
 

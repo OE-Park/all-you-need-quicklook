@@ -16,18 +16,23 @@ the render-time feature set is complete.
    remaining work. The original review's line numbers/hashes describe its dated
    snapshot; some findings have since been addressed in design only.
 
-Local worktree:
-`/Users/yohanpark/DevTools/all-you-need-quicklook/.worktrees/feat-render-time-features`
+## PR integration (2026-09-07)
 
-Remote branch: `OE-Park/all-you-need-quicklook:feat/render-time-features`.
-This branch is stacked on `feat/host-app-ui` (`b553d9c`, open PR #8 at handoff).
-Its Draft PR targets that branch to avoid duplicating the host UI changes. After
-#8 merges, inspect ancestry and the PR diff before retargeting to `main`; do not
-blindly rebase or force-push. Check GitHub for current state rather than treating
-these recorded branch facts as permanent.
+The owner requested conflict resolution and squash merge of PRs #5, #8 and #9.
+The integration workspace is `.worktrees/pr-merge`; existing feature worktrees
+and root uncommitted changes are preserved. Check GitHub for the current merge
+state and use a fresh main checkout for continuation after the PRs land.
 
-The user requested a checkpoint and handoff, not merging or deleting this worktree.
-Preserve it for continuation. Other worktrees and root-checkout edits are separate.
+The host integration includes main's image timeout/resource policy and escaping
+regressions, explicit nonce plumbing, notebook code-fence highlighting, unknown
+text-language fallback, and one-shot navigation admission. Its 130 tests and
+host build passed; Finder Space verified md/ipynb/log using the current build's
+extension path. The 41 compiler/matcher tests are additional and do not connect
+the pattern engine to rendering. Final combined validation: 171 tests passed (130 host integration + 11 compiler
++ 30 matcher/resolver), including existing live WKWebView assertions; host and
+embedded extension build passed. No renderer, host UI or extension source differs
+from the Finder-verified host integration. No additional Finder check was run
+for these unloaded JS resources. `git diff --check` passed.
 
 ## Implemented versus pending
 
@@ -37,7 +42,7 @@ Preserve it for continuation. Other worktrees and root-checkout edits are separa
 | NFA compiler | Implemented; source/depth/repeat/state/compile-work caps, nullable rejection, opaque shared budget |
 | Metered Thompson matcher (`findMatches`) | Implemented; leftmost-longest, non-overlapping, UTF-16-safe offsets, shared step/text/interval budget |
 | Run interval resolver (`resolveRun`) | Implemented; non-overlapping ascending segments, error>warn>info>debug precedence, adjacent-identical merge, shared segment/step budget |
-| Compiler + matcher validation | 143 XCTest cases in the Tests scheme execute the actual bundled resources in JSCore (118 baseline includes 11 compiler cases; 25 in `BoundedPatternMatcherTests`); short language fixtures use an independent test graph interpreter |
+| Compiler + matcher validation | 41 cases execute the bundled resources in JSCore (11 compiler and 30 matcher/resolver tests); see the current integration checkpoint for the full-suite count; short language fixtures use an independent test graph interpreter |
 | Logical-line/prose-run extraction, protected-subtree boundaries, DOM offset mapping, node splitting, the 20,000-node DOM discovery budget | **Not implemented** |
 | Wrapper application, the skip notice, `PatternHighlighter` | **Not implemented** |
 | HTMLTemplate loading of either JS resource | **Not implemented**; neither resource is loaded by any renderer yet |
@@ -68,11 +73,11 @@ BoundedPatternMatcher.createBudget(limits)   // steps<=2000000, text<=262144, in
 BoundedPatternMatcher.findMatches(program, text, budget)
 //  {status:'matched', matches:[{start,end}]} | {status:'skipped', reason:'run-limit'}
 //  {status:'incomplete', reason:'step-budget'|'interval-limit'|'text-budget'}   no matches
-//  {status:'rejected', reason:'invalid-budget'|'invalid-text'|'invalid-program'}
+//  {status:'rejected', reason:'invalid-budget'|'invalid-text'|'invalid-program'|'internal-error'}
 BoundedPatternMatcher.resolveRun(groups, budget)
 //  groups: [{kind:'level', level:'error'|'warn'|'info'|'debug', matches:[...]}, {kind:'general', matches:[...]}]
 //  {status:'resolved', segments:[{start,end,level,general}]}   non-overlapping, ascending, adjacent-identical merged
-//  {status:'incomplete', reason:'segment-limit'|'step-budget'} | {status:'rejected', reason:'invalid-budget'|'invalid-groups'}
+//  {status:'incomplete', reason:'segment-limit'|'step-budget'} | {status:'rejected', reason:'invalid-budget'|'invalid-groups'|'internal-error'}
 ```
 
 Matching is leftmost-longest and non-overlapping, `^`/`$` address the run
@@ -152,18 +157,13 @@ implementation before that plan exists.
 - Keep Settings pattern validation, log level counts in the metadata header,
   gutter, themes and the unknown notebook language fallback out of this task;
   they remain later work per the design.
-- Before planning, triage the deferred minor findings from the two matcher task
-  reviews (full detail in `plans/2026-09-07-metered-pattern-matcher.md`
-  Evidence section): `createBudget(null)` throws `TypeError` rather than the
-  documented `RangeError`; the surrogate-width rule is written twice
-  (`widthAt` and an inline ternary); program validation only checks
-  `instructions[start]`, so an out-of-range program edge throws a raw
-  `TypeError` instead of a rejection; the `RANK[name] > RANK[level]`
-  comparison in `emit` is dead code given the pre-sorted scan order;
-  `RANK[level]` truthiness would accept an inherited `Object.prototype`
-  property name; no test covers a negative `start` offset or reads
-  `segments`/`segmentsLimit` directly. Fix or explicitly re-defer each one in
-  the new plan.
+- Remaining minor findings: duplicated surrogate-width logic and the dead
+  `RANK[name] > RANK[level]` comparison after pre-sorting. Revisit or explicitly
+  defer them in the integration plan. `4b29114` already fixed the null-budget
+  RangeError, inherited level names, negative starts, counter coverage and
+  engine-defect reporting; do not triage them as outstanding.
+- `internal-error` means an engine defect; counters already charged remain
+  charged and partial results are discarded. It is distinct from caller errors.
 - `reviews/probes/2026-09-07-metered-nfa/` remains **throwaway research code**;
   do not move it into `Shared/`.
 
@@ -173,7 +173,7 @@ behavior and the unknown notebook language fallback. Resolve these before
 implementing their features. The SVG/math skip contract and cross-node
 matching are specified but not shipped.
 
-## Verification checkpoint
+## Historical verification checkpoint (before 4b29114)
 
 On macOS 26.6.2 / Xcode 26.6 / arm64, at HEAD `f88828c`:
 

@@ -38,7 +38,7 @@
     //   { status: 'skipped', reason: 'run-limit' }               this run only; document continues
     //   { status: 'incomplete', reason }                         run discarded; caller stops matching
     //       reason: 'step-budget' | 'interval-limit' | 'text-budget'
-    //   { status: 'rejected', reason }                           no work committed to the budget
+    //   { status: 'rejected', reason }   caller validation charges no work; internal-error keeps work already charged
     //       reason: 'invalid-budget' | 'invalid-text' | 'invalid-program' | 'internal-error'
     //           'internal-error': an engine defect (a thrown, non-Exhausted error) surfaced
     //           during matching. Reported as an engine fault, not attributed to the caller's

@@ -149,4 +149,22 @@ final class NotebookRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("notebook"))
         XCTAssertTrue(html.contains("Error")) // shows error message
     }
+    func testStreamOutputEscapesApostrophe() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":1,"outputs":[{"output_type":"stream","name":"stdout","text":["it's unsafe"]}]}
+        """)
+
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb", nonce: nonce)
+
+        XCTAssertTrue(html.contains("it&#39;s unsafe"))
+    }
+    func testMarkdownCodeBlocksUseCurrentHighlightJSAPI() {
+        let json = makeNotebookJSON(cells: """
+        {"cell_type":"markdown","metadata":{},"source":["```swift\\nlet x = 1\\n```"]}
+        """)
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb", nonce: nonce)
+
+        XCTAssertTrue(html.contains(".markdown-cell pre code"))
+        XCTAssertFalse(html.contains("highlight: function"))
+    }
 }

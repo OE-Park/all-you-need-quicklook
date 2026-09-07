@@ -37,15 +37,16 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 Continuation starts at [HANDOFF.md](docs/superpowers/HANDOFF.md), which records
 the current checkpoint, next task, verification scope and cross-service prompt.
 
-Current work: bounded pattern compiler and metered matcher on
-`feat/render-time-features`, HEAD `f88828c`. The restricted parser, NFA compiler,
-metered Thompson matcher and run resolver are implemented as a static resource,
-tested through JavaScriptCore (143 tests, 0 failures on macOS 26.6.2/Xcode 26.6/
-arm64), and not yet connected to preview rendering or Settings. See the
-[handoff](docs/superpowers/HANDOFF.md) for current state and the next task. The
-DOM pass and UI integration remain unimplemented. Read the
-[design](docs/superpowers/specs/2026-09-06-render-time-features-design.md) and
-[review prompt](docs/superpowers/reviews/2026-09-06-render-time-features-review-prompt.md).
+Current scope: bounded pattern compiler and metered matcher, bundled as static
+resources and tested through JavaScriptCore. They are not connected to preview
+rendering or Settings. The [handoff](docs/superpowers/HANDOFF.md) is the authority
+for current validation, pending DOM/UI integration and the next task. Avoid
+copying checkpoint hashes or test counts here; they become stale.
+
+The host UI integration preserves main's timeout-controlled image proxy,
+private bundled fonts, and escaping fixes alongside explicit nonce plumbing.
+Finder Space checks for .md/.ipynb/.log passed on the host integration build;
+its running extension path was verified and prior registrations restored.
 
 Tasks 1–12 form the original baseline. Tasks 13–17 were implemented on
 `feat/host-app-ui` and are included in this branch: the host app

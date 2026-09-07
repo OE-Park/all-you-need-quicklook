@@ -27,6 +27,8 @@
 	<dict>
 		<key>NSExtensionAttributes</key>
 		<dict>
+			<key>QLIsDataBasedPreview</key>
+			<false/>
 			<key>QLSupportedContentTypes</key>
 			<array>
 				<string>public.plain-text</string>
@@ -34,6 +36,8 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.jupyter.notebook</string>
 			</array>
+			<key>QLSupportsSearchableItems</key>
+			<false/>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.quicklook.preview</string>

@@ -16,7 +16,7 @@ public enum ANSIConverter {
     )
 
     public static func toHTML(_ input: String) -> String {
-        let escaped = escapeHTML(input)
+        let escaped = HTMLEscaper.escape(input)
         let nsString = escaped as NSString
         let matches = ansiPattern.matches(
             in: escaped,
@@ -71,13 +71,5 @@ public enum ANSIConverter {
             }
         }
         return parts.joined(separator: ";")
-    }
-
-    private static func escapeHTML(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 }

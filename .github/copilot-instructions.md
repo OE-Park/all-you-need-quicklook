@@ -63,3 +63,8 @@ In the recorded Finder checks, `.md`, `.ipynb` and `.log` used the extension; `.
 ## Reviewing
 
 A green build and a green suite are not evidence that a preview renders. This project has twice shipped code that built, passed every test, passed every review, and was dead on arrival — caught only by running the real app. When reviewing, prefer findings you can state as a concrete failure, and distinguish what passing assertions establish from untested runtime behavior. Existing tests do not validate an unimplemented design.
+
+Resource integration: bundled JS/CSS stay inline with explicit document nonces.
+Remote images retain main's timeout-controlled `quicklook-image:` handler;
+bundled fonts retain `quicklook-resource://bundle`. Do not restore externally
+linked script tags or remove the image timeout while resolving future merges.
