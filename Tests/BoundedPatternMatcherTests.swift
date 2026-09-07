@@ -189,4 +189,95 @@ final class BoundedPatternMatcherTests: XCTestCase {
         XCTAssertGreaterThan(spent, 200 * 3)
         XCTAssertLessThan(spent, 2_000_000)
     }
+
+    private func resolve(_ groups: [[String: Any]], _ handle: JSValue? = nil) throws -> JSValue {
+        let handle = try handle ?? budget()
+        let result = try XCTUnwrap(context.objectForKeyedSubscript("BoundedPatternMatcher")?
+            .invokeMethod("resolveRun", withArguments: [groups, handle]))
+        XCTAssertNil(context.exception)
+        return result
+    }
+
+    private func level(_ name: String, _ pairs: [[Int]]) -> [String: Any] {
+        ["kind": "level", "level": name, "matches": pairs.map { ["start": $0[0], "end": $0[1]] }]
+    }
+
+    private func general(_ pairs: [[Int]]) -> [String: Any] {
+        ["kind": "general", "matches": pairs.map { ["start": $0[0], "end": $0[1]] }]
+    }
+
+    /// Segments as (start, end, level ?? "-", general) tuples for readable assertions.
+    private func segments(_ result: JSValue) throws -> [String] {
+        XCTAssertEqual(result.forProperty("status")?.toString(), "resolved")
+        let list = try XCTUnwrap(result.forProperty("segments"))
+        let count = Int(list.forProperty("length")?.toInt32() ?? 0)
+        return (0..<count).map { index in
+            let s = list.atIndex(index)
+            let name = s?.forProperty("level")?.isNull == true ? "-" : (s?.forProperty("level")?.toString() ?? "?")
+            return "\(s?.forProperty("start")?.toInt32() ?? -1)-\(s?.forProperty("end")?.toInt32() ?? -1)"
+                + ":\(name):\(s?.forProperty("general")?.toBool() == true ? "g" : "-")"
+        }
+    }
+
+    func testGeneralPatternsUnionIntoOneStyle() throws {
+        XCTAssertEqual(try segments(try resolve([general([[0, 4], [2, 7]]), general([[9, 11]])])),
+                       ["0-7:-:g", "9-11:-:g"])
+    }
+
+    func testAdjacentIdenticalSegmentsMerge() throws {
+        XCTAssertEqual(try segments(try resolve([general([[0, 3], [3, 6]])])), ["0-6:-:g"])
+    }
+
+    func testLevelPrecedenceIsErrorWarnInfoDebugPerCoveredInterval() throws {
+        XCTAssertEqual(try segments(try resolve([level("error", [[4, 9]]), level("warn", [[0, 6]])])),
+                       ["0-4:warn:-", "4-9:error:-"])
+        XCTAssertEqual(try segments(try resolve([level("info", [[0, 10]]), level("debug", [[2, 4]])])),
+                       ["0-10:info:-"])
+    }
+
+    func testGeneralEmphasisAndLevelColorCoexistOnOneSegment() throws {
+        XCTAssertEqual(try segments(try resolve([level("error", [[0, 5]]), general([[3, 8]])])),
+                       ["0-3:error:-", "3-5:error:g", "5-8:-:g"])
+    }
+
+    func testEmptyInputResolvesToNoSegments() throws {
+        XCTAssertEqual(try segments(try resolve([])), [])
+        XCTAssertEqual(try segments(try resolve([general([]), level("error", [])])), [])
+    }
+
+    func testSegmentLimitDiscardsTheRunAtomically() throws {
+        let handle = try budget(["segments": 2])
+        let result = try resolve([general([[0, 1], [2, 3], [4, 5]])], handle)
+        XCTAssertEqual(result.forProperty("status")?.toString(), "incomplete")
+        XCTAssertEqual(result.forProperty("reason")?.toString(), "segment-limit")
+        XCTAssertTrue(result.forProperty("segments")?.isUndefined == true)
+        XCTAssertEqual(handle.forProperty("segments")?.toInt32(), 2)
+    }
+
+    func testResolutionChargesTheSharedStepBudget() throws {
+        let handle = try budget(["steps": 4])
+        let result = try resolve([general([[0, 1], [2, 3], [4, 5], [6, 7]])], handle)
+        XCTAssertEqual(result.forProperty("status")?.toString(), "incomplete")
+        XCTAssertEqual(result.forProperty("reason")?.toString(), "step-budget")
+        XCTAssertEqual(handle.forProperty("steps")?.toInt32(), 4)
+    }
+
+    func testMalformedGroupsAreRejected() throws {
+        let value = context.evaluateScript("""
+        (() => {
+          const m = BoundedPatternMatcher, b = m.createBudget();
+          return { notArray: m.resolveRun(null, b).reason,
+                   badKind: m.resolveRun([{ kind: 'other', matches: [] }], b).reason,
+                   badLevel: m.resolveRun([{ kind: 'level', level: 'nope', matches: [] }], b).reason,
+                   badPair: m.resolveRun([{ kind: 'general', matches: [{ start: 3, end: 1 }] }], b).reason,
+                   badBudget: m.resolveRun([], {}).reason, steps: b.steps };
+        })()
+        """)
+        XCTAssertNil(context.exception)
+        for key in ["notArray", "badKind", "badLevel", "badPair"] {
+            XCTAssertEqual(value?.forProperty(key)?.toString(), "invalid-groups", key)
+        }
+        XCTAssertEqual(value?.forProperty("badBudget")?.toString(), "invalid-budget")
+        XCTAssertEqual(value?.forProperty("steps")?.toInt32(), 0)
+    }
 }

@@ -117,5 +117,66 @@
         }
         return { status: 'matched', matches };
     }
-    root.BoundedPatternMatcher = Object.freeze({ createBudget, findMatches });
+    const RANK = { error: 4, warn: 3, info: 2, debug: 1 };
+
+    function resolveRun(groups, budget) {
+        const work = budgets.get(budget);
+        if (!work) return { status: 'rejected', reason: 'invalid-budget' };
+        if (!Array.isArray(groups)) return { status: 'rejected', reason: 'invalid-groups' };
+        const events = [];                                // {pos, delta, key}
+        for (const group of groups) {
+            if (!group || typeof group !== 'object' || !Array.isArray(group.matches)) {
+                return { status: 'rejected', reason: 'invalid-groups' };
+            }
+            const level = group.kind === 'level' ? group.level : null;
+            if (group.kind !== 'general' && !(group.kind === 'level' && RANK[level])) {
+                return { status: 'rejected', reason: 'invalid-groups' };
+            }
+            for (const m of group.matches) {
+                if (!m || !Number.isInteger(m.start) || !Number.isInteger(m.end) || m.end <= m.start) {
+                    return { status: 'rejected', reason: 'invalid-groups' };
+                }
+                events.push({ pos: m.start, delta: 1, key: level || 'general' },
+                            { pos: m.end, delta: -1, key: level || 'general' });
+            }
+        }
+        const take = stepper(work);
+        try {
+            const active = { general: 0, error: 0, warn: 0, info: 0, debug: 0 };
+            const segments = [];
+            function emit(start, end) {                    // covered slice between two events
+                let level = null;
+                for (const name of ['error', 'warn', 'info', 'debug']) {
+                    take();
+                    if (active[name] > 0 && (level === null || RANK[name] > RANK[level])) level = name;
+                }
+                const general = active.general > 0;
+                if (level === null && !general) return;
+                const last = segments[segments.length - 1];
+                if (last && last.end === start && last.level === level && last.general === general) {
+                    last.end = end; return;                // merge, no new wrapper
+                }
+                if (work.segments >= work.segmentsLimit) throw new Exhausted('segment-limit');
+                work.segments++;
+                segments.push({ start, end, level, general });
+            }
+            events.sort((a, b) => { take(); return a.pos - b.pos || a.delta - b.delta; });
+            let index = 0, previous = null;
+            while (index < events.length) {
+                take();
+                const pos = events[index].pos;
+                if (previous !== null && pos > previous) emit(previous, pos);
+                while (index < events.length && events[index].pos === pos) {
+                    take(); active[events[index].key] += events[index].delta; index++;
+                }
+                previous = pos;
+            }
+            return { status: 'resolved', segments };
+        } catch (e) {
+            if (!(e instanceof Exhausted)) throw e;
+            return { status: 'incomplete', reason: e.reason };
+        }
+    }
+
+    root.BoundedPatternMatcher = Object.freeze({ createBudget, findMatches, resolveRun });
 })(globalThis);
