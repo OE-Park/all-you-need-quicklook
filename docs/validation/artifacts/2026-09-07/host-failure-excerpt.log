@@ -1,0 +1,6 @@
+2026-09-07 18:23:08.629 E  AllYouNeedQuickLook[92856:f8dd9f] [com.apple.WebKit:Process] 0x1260c8680 - [PID=0] WebProcessProxy::processDidTerminateOrFailedToLaunch: reason=Crash
+2026-09-07 18:23:08.645 E  AllYouNeedQuickLook[92856:f8dd9f] [com.apple.WebKit:Sandbox] 0xb86a56318 - [pageProxyID=8, webPageID=9, PID=93218] WebPageProxy::maybeInitializeSandboxExtensionHandle: unable to create sandbox extension
+2026-09-07 18:23:08.645 E  AllYouNeedQuickLook[92856:f8dd9f] [com.apple.WebKit:Process] 0x1260c8c40 - [PID=93218] WebProcessProxy::processDidTerminateOrFailedToLaunch: reason=Crash
+2026-09-07 18:23:55.261 E  AllYouNeedQuickLook[92856:f8dd9f] [com.apple.WebKit:Process] 0x1260c80c0 - [PID=0] WebProcessProxy::processDidTerminateOrFailedToLaunch: reason=Crash
+2026-09-07 18:23:55.279 E  AllYouNeedQuickLook[92856:f8dd9f] [com.apple.WebKit:Process] 0x1260c8680 - [PID=93698] WebProcessProxy::processDidTerminateOrFailedToLaunch: reason=Crash
+2026-09-07 18:24:27.285 E  AllYouNeedQuickLook[92856:f8dd9f] [com.apple.WebKit:Process] 0x1260c80c0 - [PID=94017] WebProcessProxy::processDidTerminateOrFailedToLaunch: reason=Crash

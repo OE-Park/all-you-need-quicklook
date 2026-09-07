@@ -37,6 +37,8 @@ targets:
       path: AllYouNeedQuickLook/AllYouNeedQuickLook.entitlements
       properties:
         com.apple.security.app-sandbox: true
+        # Sandboxed WKWebView needs its network process even for local HTML.
+        com.apple.security.network.client: true
         com.apple.security.application-groups:
           - group.com.yohanpark.AllYouNeedQuickLook
     postBuildScripts:

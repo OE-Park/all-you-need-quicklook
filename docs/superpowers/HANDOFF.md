@@ -18,6 +18,13 @@ the render-time feature set is complete.
 
 ## PR integration (2026-09-07)
 
+PRs #5, #8 and #9 were squash merged; combined main is `99c1850`.
+The subsequent dark-mode check exposed a blank sandboxed host Preview despite
+passing XCTest/Finder checks. Host network-client entitlement repair and the
+current light/dark verification are recorded in the
+[validation report](../validation/2026-09-07-dark-mode.md). Use that report for
+the host verification status; the older dark-mode pending note is superseded.
+
 The owner requested conflict resolution and squash merge of PRs #5, #8 and #9.
 The integration workspace is `.worktrees/pr-merge`; existing feature worktrees
 and root uncommitted changes are preserved. Check GitHub for the current merge
