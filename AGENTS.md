@@ -2,26 +2,54 @@
 
 macOS QuickLook Preview Extension. Spec and plan live in `docs/superpowers/`.
 
+## Working context
+
+Before reviewing or editing, confirm the target worktree, branch, commit and dirty
+files, then read that worktree's `AGENTS.md` and applicable `.github/` instructions.
+A status note from another branch is not the target branch's implementation state.
+Check task-relevant claims against source and recorded validation evidence.
+
 ## Build (Mac only)
 
 ```bash
 xcodegen generate
 xcodebuild test -project AllYouNeedQuickLook.xcodeproj -scheme Tests -destination "platform=macOS"
+xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -destination "platform=macOS" build
 ```
 
 `*.xcodeproj` is gitignored. Always regenerate.
 
+## Validation scope
+
+- Design/document-only review: building is optional. Existing green tests do not
+  validate unimplemented behavior. State what was inspected and what was not run.
+- Implementation changes: follow the assigned plan's TDD steps and run relevant
+  tests plus the host-app build on macOS; cloud agents rely on CI for compilation.
+- Rendering changes: exercise the affected behavior in a live `WKWebView` and
+  verify the affected preview in Finder with Space. The host Preview tab and
+  `qlmanage -p` do not prove extension registration or Finder routing.
+- Test success is evidence only for the assertions executed. Report compilation,
+  DOM assertions, visual checks and Finder checks separately, including pending
+  manual checks. Do not mark verification complete while a required check remains.
+
 ## Status
 
-PR integration (2026-09-07): main's timeout-controlled external image handler,
-font resource scheme, escaping helpers, and regression tests are retained with
-the host branch's explicit per-document nonce API and inline JS/CSS. 130 local
-tests and the host build pass. Finder Space checks passed for .md, .ipynb and .log on this merged build;
-the extension executable path was verified after temporarily unregistering
-older copies with owner approval, then restoring their registrations.
+Continuation starts at [HANDOFF.md](docs/superpowers/HANDOFF.md), which records
+the current checkpoint, next task, verification scope and cross-service prompt.
 
+Current scope: bounded pattern compiler and metered matcher, bundled as static
+resources and tested through JavaScriptCore. They are not connected to preview
+rendering or Settings. The [handoff](docs/superpowers/HANDOFF.md) is the authority
+for current validation, pending DOM/UI integration and the next task. Avoid
+copying checkpoint hashes or test counts here; they become stale.
 
-Tasks 1–12 are on `main`. Tasks 13–17 are on `feat/host-app-ui`: the host app
+The host UI integration preserves main's timeout-controlled image proxy,
+private bundled fonts, and escaping fixes alongside explicit nonce plumbing.
+Finder Space checks for .md/.ipynb/.log passed on the host integration build;
+its running extension path was verified and prior registrations restored.
+
+Tasks 1–12 form the original baseline. Tasks 13–17 were implemented on
+`feat/host-app-ui` and are included in this branch: the host app
 shell, WelcomeView, SettingsView and PreviewView, plus two defect fixes in
 already-merged code — the CSP that never applied, and markdown code fences that
 were never highlighted.
@@ -33,9 +61,9 @@ instead of inside `NSExtension > NSExtensionAttributes` (so the appex declared
 no supported types at all), and `.log` needed its concrete `com.apple.log` type
 declared rather than only the `public.plain-text` ancestor.
 
-`.txt` still falls back to the system preview: its type *is* `public.plain-text`,
-which the built-in text preview also declares and wins. The Preview tab renders
-`.txt` correctly; the extension does not.
+In the recorded Finder check, `.txt` fell back to the system preview: both this
+extension and the built-in preview declared `public.plain-text`, and the system
+preview was selected. The host Preview tab rendered `.txt` correctly.
 
 Task 17 step 3's sub-item 4, the dark-mode toggle, remains the owner's to run.
 
@@ -51,13 +79,21 @@ duplicates; clear them with `lsregister -u <path>`.
 
 - Spec over plan if they conflict.
 - One plan task at a time. TDD as written.
-- Escape user content before HTML injection, and through `ScriptEscaping` before
-  any injection into an inline `<script>`. The plan's Security Note is the threat
-  model; read it before touching a renderer or the CSP.
-- Every `<script>` a renderer or `HTMLTemplate` emits must carry the document's
-  nonce, and that same nonce must reach
-  `PreviewWebView.loadHTML(_:resourcesURL:nonce:)`. `script-src` names the nonce
-  and nothing else, so an unstamped script silently does not run.
+- Escape untrusted plain text for its destination (HTML text, quoted attribute,
+  JavaScript string or JSON). HTML escaping is not JavaScript escaping.
+- Inline script data needs both destination-appropriate serialization and HTML
+  script-boundary protection. Use the matching `ScriptEscaping` API where present;
+  do not feed serialized JSON through a string-literal escaper as a substitute.
+- Markdown raw HTML and notebook `text/html` output are intentionally rendered as
+  markup. They are untrusted, are not sanitized by marked, and must remain under
+  CSP and navigation restrictions; do not accidentally escape these supported paths.
+- Only app-controlled scripts may receive the document nonce. Never stamp scripts
+  supplied by a previewed file. Preserve the nonce/CSP contract where implemented;
+  legacy plan snippets are not authority to weaken it.
+- Read the original plan's Security Note before changing a renderer or CSP.
+- Every app-controlled `<script>` must carry the same fresh document nonce passed
+  to `PreviewWebView.loadHTML(_:resourcesURL:nonce:)`. Keep bundled JS/CSS inlined;
+  do not restore external resource tags or widen CSP to make them load.
 - Copilot cloud agent cannot run Xcode. CI on `macos-26` is the compiler.
 
 Web Copilot details: `.github/copilot-instructions.md`.

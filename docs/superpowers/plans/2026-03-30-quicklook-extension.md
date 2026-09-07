@@ -26,10 +26,12 @@ earlier version of this note got the notebook path wrong (see below).
 
 What is true:
 
-- Every renderer HTML-escapes the text it injects, and every Swift value interpolated into
-  an inline `<script>` goes through `Shared/Renderers/ScriptEscaping.swift`, which
-  neutralises `</script` as well as the JavaScript literal it lands in. A previewed file
-  therefore cannot end a script element and be parsed as document markup.
+- Plain text and attribute values require escaping for their HTML destination.
+  Intentional raw-HTML paths are listed below and are not sanitized. Every Swift
+  value interpolated into an app-controlled inline `<script>` needs the matching
+  string-literal or JSON serialization and script-boundary protection through
+  `Shared/Renderers/ScriptEscaping.swift`. A string-literal escaper is not a JSON
+  serializer; both JavaScript parsing and HTML script boundaries must be protected.
 - The CSP (`Shared/WebView/PreviewWebView.swift`) is `default-src 'none'` with
   `script-src 'nonce-<per-document random>'`, `style-src 'unsafe-inline'`,
   `img-src data: http: https:`, `font-src data:`, `base-uri 'none'` and
@@ -37,8 +39,9 @@ What is true:
   (no `connect-src`) and form posts are all blocked, and so is every inline script the
   document did not come with.
 - The nonce is 16 bytes from `SecRandomCopyBytes`, base64-encoded.
-  `PreviewWebView.makeNonce()` mints one per document; the renderer stamps it on every
-  `<script>` it emits (three bundled libraries plus the renderer's own driver), and
+  `PreviewWebView.makeNonce()` mints one per document; the renderer stamps it only on app-controlled
+  scripts (three bundled libraries plus the renderer's own driver), never on scripts
+  from previewed content, and
   `PreviewWebView.loadHTML(_:resourcesURL:nonce:)` arms the policy with the same value.
   The injected `<meta>` is rebuilt on every load behind `removeAllUserScripts()`, so the
   previous document's nonce dies with the previous document.
@@ -3178,12 +3181,13 @@ see below. Two defects were found and fixed:
   with just `public.plain-text` declared, the system's own text preview won. Declaring
   `com.apple.log` explicitly makes the extension win.
 
-**`.txt` cannot currently be overridden.** Its type *is* `public.plain-text`, which we
-already declare — the system's built-in text preview declares the same type and takes
-precedence. That leaves the spec's "Text & Logs (.txt, .log, …)" claim only partly true
+**Recorded `.txt` routing result.** Its type *is* `public.plain-text`, which we
+already declare — the system's built-in text preview declared the same type and was selected
+in the recorded environment. This does not prove that overriding it is impossible
+on every macOS version or registration state. That leaves the spec's "Text & Logs (.txt, .log, …)" claim only partly true
 in Finder: the host app's Preview tab renders `.txt` with the configured formatting, the
-QuickLook extension does not. Any other text-ish extension can be supported by adding
-its concrete UTType to `QLSupportedContentTypes`.
+QuickLook extension does not. Adding a concrete UTType for another extension requires a separate scope decision
+and a Finder routing check; declaration alone is not proof of selection.
 
 **Two prerequisites that are not obvious.** The extension will not register unless the
 app bundle is actually code-signed — `CODE_SIGNING_ALLOWED: NO` leaves only the linker's
