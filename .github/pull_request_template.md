@@ -4,11 +4,12 @@
 
 ## Validation
 
-<!-- `xcodegen generate` + `xcodebuild test -scheme Tests` (or CI link). -->
+<!-- Design/docs: inspection performed; build optional. Implementation: relevant tests + host build (or CI link). Rendering: live WKWebView assertions and Finder + Space checks. List unrun/manual checks separately. -->
 
 ## Security
 
-- [ ] User-derived HTML is escaped (or produced only by bundled marked/hljs/KaTeX).
+- [ ] Untrusted text/attributes/script data use destination-appropriate escaping; intentional raw HTML remains subject to CSP/navigation restrictions.
+- [ ] Only app-controlled scripts receive the document nonce, where nonce support is implemented.
 - [ ] No new network, entitlement, or CSP hole.
 - [ ] No secrets in the diff.
 
