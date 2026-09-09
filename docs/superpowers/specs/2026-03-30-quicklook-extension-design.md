@@ -184,6 +184,7 @@ SwiftUI app with three tabs:
 
 **Host App:**
 - `com.apple.security.app-sandbox` = `true`
+- `com.apple.security.network.client` = `true` (sandboxed WKWebView process support, including local sample previews)
 - `com.apple.security.application-groups` = `group.com.yohanpark.AllYouNeedQuickLook`
 
 ### WKWebView Security
