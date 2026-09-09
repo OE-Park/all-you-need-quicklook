@@ -23,9 +23,30 @@ APP="${CODESIGNING_FOLDER_PATH:?must run from an Xcode build phase}"
 FRAMEWORK="$APP/Contents/Frameworks/Shared.framework"
 APPEX="$APP/Contents/PlugIns/QuickLookExtension.appex"
 
+# Xcode 26 puts two helper Mach-Os next to the main binary in Contents/MacOS:
+# the debug dylib that actually holds the code (`<name>.debug.dylib`) and the
+# preview injection stub (`__preview.dylib`). On Apple Silicon the linker
+# ad-hoc signs them on its own, so nobody notices them. On x86_64 -- which is
+# what the GitHub macOS runner turned out to be -- it does not, and codesign
+# refuses to sign a container whose nested code is unsigned:
+#
+#   QuickLookExtension.appex: code object is not signed at all
+#   In subcomponent: .../QuickLookExtension.appex/Contents/MacOS/__preview.dylib
+#
+# So they get signed first, for the same inside-out reason as everything else
+# here.
+sign_nested_dylibs() {
+    local bundle="$1" dylib
+    for dylib in "$bundle"/Contents/MacOS/*.dylib; do
+        [ -e "$dylib" ] || continue
+        codesign --force --sign - --timestamp=none "$dylib"
+    done
+}
+
 sign() {
     local target="$1" entitlements="${2:-}"
     [ -e "$target" ] || { echo "warning: $target missing, skipping"; return; }
+    sign_nested_dylibs "$target"
     if [ -n "$entitlements" ]; then
         codesign --force --sign - --entitlements "$entitlements" --timestamp=none "$target"
     else
