@@ -75,6 +75,12 @@ profile, which `codesign` itself does not. Note also that every launched build
 location registers its own copy, so the System Settings list accumulates
 duplicates; clear them with `lsregister -u <path>`.
 
+The script also signs the helper dylibs in `Contents/MacOS`
+(`<name>.debug.dylib`, `__preview.dylib`) before their bundle. On Apple Silicon
+the linker ad-hoc signs those already; on an x86_64 runner it does not, and
+`codesign` refuses to sign a bundle whose nested code is unsigned. That is why
+CodeQL's build failed while the same build passed locally.
+
 ## Hard rules
 
 - Spec over plan if they conflict.
