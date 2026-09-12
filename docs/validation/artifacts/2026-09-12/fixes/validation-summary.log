@@ -1,0 +1,183 @@
+task1-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:37: error: -[Tests.RendererRegressionTests testHighlightedScriptBoundariesPreserveLiteralContent] : failed - Document renderer did not become ready
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:21: error: -[Tests.RendererRegressionTests testHighlightedScriptBoundariesPreserveLiteralContent] : XCTAssertEqual failed: ("") is not equal to ("before <!--<script> after </script><script>globalThis.pwned=1</script>")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:37: error: -[Tests.RendererRegressionTests testMarkdownCommentAndScriptOpeningCannotSwallowDocument] : failed - Document renderer did not become ready
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:10: error: -[Tests.RendererRegressionTests testMarkdownCommentAndScriptOpeningCannotSwallowDocument] : XCTAssertEqual failed: ("undefined") is not equal to ("Visible")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:12: error: -[Tests.RendererRegressionTests testMarkdownCommentAndScriptOpeningCannotSwallowDocument] : XCTAssertEqual failed: ("undefined") is not equal to ("true")
+	 Executed 2 tests, with 5 failures (0 unexpected) in 12.666 (12.667) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.070 (0.072) seconds
+	 Executed 12 tests, with 5 failures (0 unexpected) in 12.736 (12.739) seconds
+	 Executed 12 tests, with 5 failures (0 unexpected) in 12.736 (12.740) seconds
+** TEST FAILED **
+
+task1-green
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.761 (0.761) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.052 (0.054) seconds
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.813 (0.815) seconds
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.813 (0.816) seconds
+** TEST SUCCEEDED **
+
+task2-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:13: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("echo 'HOMEHOMEHOME'
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:15: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("CODECODECODE") is not equal to ("$CODE$") - md
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:17: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("<span class=") is not equal to ("$TITLE$") - md
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:19: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("CODE") is not equal to ("a < b|c & d") - md
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:13: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("echo 'HOMEHOMEHOME'
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:15: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("CODECODECODE") is not equal to ("$CODE$") - ipynb
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:17: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("undefined") is not equal to ("$TITLE$") - ipynb
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:19: error: -[Tests.RendererRegressionTests testMathLeavesCodeAndAttributesIntactInMarkdownAndNotebook] : XCTAssertEqual failed: ("CODE|TITLE") is not equal to ("a < b|c & d") - ipynb
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:26: error: -[Tests.RendererRegressionTests testNotebookMarkdownRecoversSourceBeforeParsing] : XCTAssertEqual failed: ("a &lt; b &amp; c") is not equal to ("a < b & c")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:28: error: -[Tests.RendererRegressionTests testNotebookMarkdownRecoversSourceBeforeParsing] : XCTAssertEqual failed: ("undefined") is not equal to ("bold")
+	 Executed 4 tests, with 10 failures (0 unexpected) in 1.275 (1.276) seconds
+	 Executed 4 tests, with 10 failures (0 unexpected) in 1.275 (1.276) seconds
+	 Executed 4 tests, with 10 failures (0 unexpected) in 1.275 (1.276) seconds
+** TEST FAILED **
+
+task2-green
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.082 (0.083) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.051 (0.052) seconds
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.160 (0.163) seconds
+	 Executed 16 tests, with 0 failures (0 unexpected) in 1.668 (1.671) seconds
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.363 (0.363) seconds
+	 Executed 55 tests, with 0 failures (0 unexpected) in 2.324 (2.333) seconds
+	 Executed 55 tests, with 0 failures (0 unexpected) in 2.324 (2.334) seconds
+** TEST SUCCEEDED **
+
+task3-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:15: error: -[Tests.RendererRegressionTests testHighlightedTextUsesConfiguredFontAndOptionalLineNumbers] : XCTAssertEqual failed: ("0") is not equal to ("3")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:17: error: -[Tests.RendererRegressionTests testHighlightedTextUsesConfiguredFontAndOptionalLineNumbers] : XCTAssertTrue failed - "SF Mono", SFMono-Regular, Menlo, Consolas, monospace
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:17: error: -[Tests.RendererRegressionTests testHighlightedTextUsesConfiguredFontAndOptionalLineNumbers] : XCTAssertTrue failed - "SF Mono", SFMono-Regular, Menlo, Consolas, monospace
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:26: error: -[Tests.RendererRegressionTests testLogMatchingPreservesEntitiesUnicodeAndLevelPrecedence] : XCTAssertEqual failed: ("a &lt; b &amp; c 😀 ERROR") is not equal to ("a < b & c 😀 ERROR")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:28: error: -[Tests.RendererRegressionTests testLogMatchingPreservesEntitiesUnicodeAndLevelPrecedence] : XCTAssertEqual failed: ("&|&|😀|ERROR") is not equal to ("&|😀|ERROR")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:30: error: -[Tests.RendererRegressionTests testLogMatchingPreservesEntitiesUnicodeAndLevelPrecedence] : XCTAssertEqual failed: ("1") is not equal to ("0")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:50: error: -[Tests.RendererRegressionTests testOversizedPlainTextHasBoundedOutputAndTruncationNotice] : XCTAssertLessThanOrEqual failed: ("450000") is greater than ("262144")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:52: error: -[Tests.RendererRegressionTests testOversizedPlainTextHasBoundedOutputAndTruncationNotice] : XCTAssertEqual failed: ("0") is not equal to ("1")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:41: error: -[Tests.RendererRegressionTests testUnsupportedAndExhaustedLogPatternsLeaveReadableTextAndNotice] : XCTAssertEqual failed: ("0") is not equal to ("1")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:41: error: -[Tests.RendererRegressionTests testUnsupportedAndExhaustedLogPatternsLeaveReadableTextAndNotice] : XCTAssertEqual failed: ("0") is not equal to ("1")
+	 Executed 8 tests, with 10 failures (0 unexpected) in 5.887 (5.888) seconds
+	 Executed 8 tests, with 10 failures (0 unexpected) in 5.887 (5.889) seconds
+	 Executed 8 tests, with 10 failures (0 unexpected) in 5.887 (5.889) seconds
+** TEST FAILED **
+
+task3-green
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.017 (0.018) seconds
+	 Executed 30 tests, with 0 failures (0 unexpected) in 0.056 (0.060) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.083 (0.084) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 1.882 (1.883) seconds
+	 Executed 59 tests, with 0 failures (0 unexpected) in 2.037 (2.046) seconds
+	 Executed 59 tests, with 0 failures (0 unexpected) in 2.037 (2.046) seconds
+** TEST SUCCEEDED **
+
+task4-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/ConfigLoaderTests.swift:47: error: -[Tests.ConfigLoaderTests testSuccessfulSaveNotifiesAfterNewConfigurationIsReadable] : Asynchronous wait failed: Exceeded timeout of 0.3 seconds, with unfulfilled expectations: "Expect notification 'QuickLookConfigurationDidSave' from any object".
+	 Executed 7 tests, with 1 failure (0 unexpected) in 0.967 (0.968) seconds
+	 Executed 7 tests, with 1 failure (0 unexpected) in 0.967 (0.968) seconds
+	 Executed 7 tests, with 1 failure (0 unexpected) in 0.967 (0.969) seconds
+** TEST FAILED **
+
+task4-green
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.123 (0.124) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.262 (0.263) seconds
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.385 (0.388) seconds
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.385 (0.389) seconds
+** TEST SUCCEEDED **
+
+task5-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/ExternalImageLoaderTests.swift:13: error: -[Tests.ExternalImageLoaderTests testDefaultLoaderRefusesRemoteRequestsBeforeTransportStarts] : XCTAssertEqual failed: ("Code(rawValue: -1001)") is not equal to ("Code(rawValue: -1009)")
+	 Executed 3 tests, with 1 failure (0 unexpected) in 1.015 (1.016) seconds
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:11: error: -[Tests.RendererRegressionTests testDefaultImagePolicyShowsNoticeForRemoteAndDirectProxyImages] : XCTAssertEqual failed: ("0") is not equal to ("2")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:13: error: -[Tests.RendererRegressionTests testDefaultImagePolicyShowsNoticeForRemoteAndDirectProxyImages] : XCTAssertEqual failed: ("2") is not equal to ("0")
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:21: error: -[Tests.RendererRegressionTests testLegacyConfigDefaultsToBlockingExternalImages] : XCTAssertEqual failed: ("nil") is not equal to ("Optional(false)")
+	 Executed 10 tests, with 3 failures (0 unexpected) in 1.702 (1.704) seconds
+	 Executed 13 tests, with 4 failures (0 unexpected) in 2.717 (2.721) seconds
+	 Executed 13 tests, with 4 failures (0 unexpected) in 2.717 (2.721) seconds
+** TEST FAILED **
+
+task5-green
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.015 (0.017) seconds
+	 Executed 30 tests, with 0 failures (0 unexpected) in 0.057 (0.061) seconds
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.124 (0.126) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.262 (0.263) seconds
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.100 (0.103) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.049 (0.050) seconds
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.156 (0.158) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.078 (0.079) seconds
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.025 (0.027) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 1.550 (1.552) seconds
+	 Executed 16 tests, with 0 failures (0 unexpected) in 1.024 (1.027) seconds
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.260 (0.262) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 1.324 (1.326) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.049 (0.051) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+	 Executed 184 tests, with 0 failures (0 unexpected) in 5.086 (5.116) seconds
+	 Executed 184 tests, with 0 failures (0 unexpected) in 5.086 (5.117) seconds
+** TEST SUCCEEDED **
+
+review-followup-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/PreviewControllerLifecycleTests.swift:26: error: -[Tests.PreviewControllerLifecycleTests testReusedControllerReplacesTransportWhenSavedImageSettingsChange] : XCTAssertFalse failed - Old native transport must not survive a document/configuration change
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/PreviewControllerLifecycleTests.swift:27: error: -[Tests.PreviewControllerLifecycleTests testReusedControllerReplacesTransportWhenSavedImageSettingsChange] : XCTAssertNotEqual failed: ("RrxPYf502A/DlVLMbKCKKw==") is equal to ("RrxPYf502A/DlVLMbKCKKw==")
+	 Executed 1 test, with 2 failures (0 unexpected) in 0.629 (0.629) seconds
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:13: error: -[Tests.RendererRegressionTests testEscapedDollarRemainsLiteralInMarkdownAndNotebook] : XCTAssertEqual failed: ("HOME|E=mc^2") is not equal to ("E=mc^2") - md
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:15: error: -[Tests.RendererRegressionTests testEscapedDollarRemainsLiteralInMarkdownAndNotebook] : XCTAssertTrue failed - Literal HOMEHOMEHOME and E=mc2E=mc^2E=mc2. Code: \$CODE\$
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:13: error: -[Tests.RendererRegressionTests testEscapedDollarRemainsLiteralInMarkdownAndNotebook] : XCTAssertEqual failed: ("HOME|E=mc^2") is not equal to ("E=mc^2") - ipynb
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:15: error: -[Tests.RendererRegressionTests testEscapedDollarRemainsLiteralInMarkdownAndNotebook] : XCTAssertTrue failed - Literal HOMEHOMEHOME and E=mc2E=mc^2E=mc2. Code: \$CODE\$
+	 Executed 12 tests, with 4 failures (0 unexpected) in 1.869 (1.872) seconds
+	 Executed 13 tests, with 6 failures (0 unexpected) in 2.498 (2.501) seconds
+	 Executed 13 tests, with 6 failures (0 unexpected) in 2.498 (2.501) seconds
+** TEST FAILED **
+
+finder-root-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/PreviewControllerLifecycleTests.swift:27: error: -[Tests.PreviewControllerLifecycleTests testReusedControllerReplacesTransportWhenSavedImageSettingsChange] : XCTAssertTrue failed - QuickLook retains the root view; replace its child, not the root
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.680 (0.680) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.680 (0.680) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.680 (0.681) seconds
+** TEST FAILED **
+xcresult assertion: XCTAssertTrue failed - QuickLook retains the root view; replace its child, not the root
+
+math-inner-dollar-red
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:13: error: -[Tests.RendererRegressionTests testMathPreservesEscapedDollarInsideExpression] : XCTAssertEqual failed: ("and") is not equal to ("\text{price: \$5}|\text{cost: \$10}") - md
+/Users/<user>/DevTools/all-you-need-quicklook/Tests/RendererRegressionTests.swift:13: error: -[Tests.RendererRegressionTests testMathPreservesEscapedDollarInsideExpression] : XCTAssertEqual failed: ("and") is not equal to ("\text{price: \$5}|\text{cost: \$10}") - ipynb
+	 Executed 1 test, with 2 failures (0 unexpected) in 1.008 (1.009) seconds
+	 Executed 1 test, with 2 failures (0 unexpected) in 1.008 (1.009) seconds
+	 Executed 1 test, with 2 failures (0 unexpected) in 1.008 (1.009) seconds
+** TEST FAILED **
+
+math-inner-dollar-green
+	 Executed 13 tests, with 0 failures (0 unexpected) in 2.236 (2.239) seconds
+	 Executed 13 tests, with 0 failures (0 unexpected) in 2.236 (2.239) seconds
+	 Executed 13 tests, with 0 failures (0 unexpected) in 2.236 (2.239) seconds
+** TEST SUCCEEDED **
+
+fixes-final-tests
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.016 (0.017) seconds
+	 Executed 30 tests, with 0 failures (0 unexpected) in 0.057 (0.061) seconds
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.121 (0.122) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.263 (0.264) seconds
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.102 (0.105) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.050 (0.051) seconds
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.159 (0.161) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.081 (0.082) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.335 (0.335) seconds
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.026 (0.028) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 1.175 (1.177) seconds
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.972 (0.975) seconds
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.237 (0.239) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+	 Executed 13 tests, with 0 failures (0 unexpected) in 1.658 (1.660) seconds
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.053 (0.055) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+	 Executed 189 tests, with 0 failures (0 unexpected) in 5.316 (5.348) seconds
+	 Executed 189 tests, with 0 failures (0 unexpected) in 5.316 (5.353) seconds
+** TEST SUCCEEDED **
+
+fixes-final-build
+** BUILD SUCCEEDED **

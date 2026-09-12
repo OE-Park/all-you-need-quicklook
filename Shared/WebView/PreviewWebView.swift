@@ -120,9 +120,9 @@ public final class PreviewWebView: WKWebView {
     /// the app reads it.
     public private(set) var installedNonce: String
 
-    public init(frame: CGRect = .zero, imageTimeoutSeconds: TimeInterval = 3) {
+    public init(frame: CGRect = .zero, imageTimeoutSeconds: TimeInterval = 3, allowExternalImages: Bool = false) {
         let resourceHandler = BundledResourceSchemeHandler()
-        let imageHandler = ExternalImageSchemeHandler(timeout: imageTimeoutSeconds)
+        let imageHandler = ExternalImageSchemeHandler(timeout: imageTimeoutSeconds, allowExternalImages: allowExternalImages)
         self.resourceHandler = resourceHandler
         self.imageHandler = imageHandler
 

@@ -25,6 +25,10 @@ struct SettingsView: View {
                         .monospacedDigit()
                 }
                 Toggle("Show Line Numbers", isOn: $config.global.showLineNumbers)
+                Toggle("Allow External Images", isOn: $config.global.allowExternalImages)
+                Text("External images can contact internet or local network servers and reveal when a file is previewed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Stepper("Image Timeout: \(config.global.imageTimeoutSeconds)s",
                         value: $config.global.imageTimeoutSeconds, in: 1...30)
             }

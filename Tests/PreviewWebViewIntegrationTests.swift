@@ -54,9 +54,9 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
     func testFailedExternalImageBecomesPlaceholder() async throws {
         let html = HTMLTemplate.wrap(
             body: "<img id=\"external\" src=\"https://127.0.0.1:1/missing.png\">",
-            rendererType: "markdown", nonce: nonce
+            rendererType: "markdown", nonce: nonce, allowExternalImages: true
         )
-        let webView = PreviewWebView(imageTimeoutSeconds: 0.2)
+        let webView = PreviewWebView(imageTimeoutSeconds: 0.2, allowExternalImages: true)
 
         webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
 

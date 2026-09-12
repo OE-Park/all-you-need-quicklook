@@ -5,7 +5,8 @@
     "fontSize": 13,
     "lineHeight": 1.5,
     "showLineNumbers": true,
-    "imageTimeoutSeconds": 3
+    "imageTimeoutSeconds": 3,
+    "allowExternalImages": false
   },
   "fileTypes": {
     "txt": {

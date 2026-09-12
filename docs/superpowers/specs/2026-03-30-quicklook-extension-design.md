@@ -69,7 +69,8 @@ AllYouNeedQuickLook/
 
 - Looks up per-extension formatting from JSON config
 - Wraps text in `<pre>` block with CSS variables for font, size, line height
-- For `.log` files: regex-matches log level patterns (`ERROR`, `WARN`, `INFO`, `DEBUG`) and wraps them in styled `<span>` elements
+- For `.log` files: the bundled bounded compiler/matcher runs in JavaScriptCore over original source lines; escaped source slices receive deterministic error>warn>info>debug styling. Unsupported patterns and exhausted budgets leave readable text with a notice.
+- Plain-text preview output is limited to 262,144 UTF-16 units or 10,000 lines, preserving Unicode scalar boundaries and showing a truncation notice. Syntax-highlighted code inherits the selected font and has an independent line-number gutter.
 - Falls back to global defaults for unconfigured extensions
 
 ### NotebookRenderer
@@ -194,7 +195,7 @@ SwiftUI app with three tabs:
 - Bundled JS/CSS are inlined; only app-controlled scripts carry the document nonce
 - Bundled fonts are served through the private `quicklook-resource://bundle` scheme
 - External link navigation blocked (no page navigation from QuickLook)
-- Only external images allowed (with 3s timeout); all other external resources (CSS, JS, iframe) blocked
+- External images are blocked by default, including legacy configurations without `allowExternalImages`. Settings can explicitly enable them, with a notice that requests may contact internet or local network servers. The native loader enforces the choice even for document-authored `quicklook-image:` URLs; embedded data images remain supported. Opt-in requests retain the configurable timeout (default 3s) and 25 MiB response cap. Other external resources (CSS, JS, iframe) remain blocked.
 
 ### Info.plist — QLSupportedContentTypes
 
