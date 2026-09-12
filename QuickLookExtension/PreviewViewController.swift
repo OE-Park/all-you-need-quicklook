@@ -6,18 +6,27 @@ import Shared
 
 class PreviewViewController: NSViewController, QLPreviewingController {
 
+    var configLoader = ConfigLoader()
+
     private var webView: PreviewWebView!
 
     override var nibName: NSNib.Name? { nil }
 
     override func loadView() {
-        let config = ConfigLoader().load()
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+    }
+
+    private func replaceWebView(config: AppConfig) {
+        let frame = view.bounds
+        webView?.stopLoading()
+        webView?.removeFromSuperview()
         webView = PreviewWebView(
-            frame: NSRect(x: 0, y: 0, width: 600, height: 400),
-            imageTimeoutSeconds: TimeInterval(config.global.imageTimeoutSeconds)
+            frame: frame,
+            imageTimeoutSeconds: TimeInterval(config.global.imageTimeoutSeconds),
+            allowExternalImages: config.global.allowExternalImages
         )
         webView.autoresizingMask = [.width, .height]
-        self.view = webView
+        view.addSubview(webView)
     }
 
     func preparePreviewOfFile(at url: URL) async throws {
@@ -31,7 +40,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         }
 
         let fileExtension = url.pathExtension.lowercased()
-        let config = ConfigLoader().load()
+        let config = configLoader.load()
 
         let renderer: Renderer = switch fileExtension {
         case "md", "markdown":
@@ -55,7 +64,9 @@ class PreviewViewController: NSViewController, QLPreviewingController {
             ?? Bundle.main.resourceURL
 
         await MainActor.run {
-            _ = self.view
+            // A reused QuickLook controller must not retain the previous
+            // document's network consent, timeout or in-flight requests.
+            replaceWebView(config: config)
             webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
         }
     }

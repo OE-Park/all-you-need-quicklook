@@ -1,0 +1,11 @@
+PROBE control: {"ready":"true","state":"complete","url":"file:///tmp/aynql-fixes-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3093,"result":"Control"}
+PROBE markdown-script-comment: {"ready":"true","state":"complete","url":"file:///tmp/aynql-fixes-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3125,"result":{"heading":"Visible","text":"Visible\n"}}
+PROBE plaintext-script-comment: {"ready":"true","state":"complete","url":"file:///tmp/aynql-fixes-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":2579,"result":"before <!--<script> after"}
+PROBE highlighted-line-numbers: {"ready":"true","state":"complete","url":"file:///tmp/aynql-fixes-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":2576,"result":{"text":"first\nsecond","lines":2}}
+PROBE markdown-math-in-code: {"ready":"true","state":"complete","url":"file:///tmp/aynql-fixes-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3267,"result":{"text":"echo '$HOME$'\n","mathInsideCode":0}}
+PROBE notebook-markdown-escaping: {"ready":"true","state":"complete","url":"file:///tmp/aynql-fixes-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3133,"result":{"code":"a < b & c","rawHTMLBold":1,"text":"a < b & c\nbold\n"}}
+PERF errors=4000 bytes=24000 seconds=0.00232696533203125 htmlBytes=504981
+PERF errors=8000 bytes=48000 seconds=0.0024449825286865234 htmlBytes=528981
+PERF errors=16000 bytes=96000 seconds=0.00412905216217041 htmlBytes=576981
+PERF errors=32000 bytes=192000 seconds=0.007646083831787109 htmlBytes=672981
+PERF errors=64000 bytes=384000 seconds=0.009955048561096191 htmlBytes=743270

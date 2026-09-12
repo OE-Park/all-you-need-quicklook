@@ -29,7 +29,7 @@ public final class NotebookRenderer: Renderer {
         document.addEventListener('DOMContentLoaded', function() {
             marked.setOptions({ gfm: true });
             document.querySelectorAll('.markdown-cell-raw').forEach(function(el) {
-                var raw = el.innerHTML;
+                var raw = el.textContent;
                 el.innerHTML = marked.parse(raw);
                 el.classList.remove('markdown-cell-raw');
                 el.classList.add('markdown-cell');
@@ -46,16 +46,7 @@ public final class NotebookRenderer: Renderer {
             });
 
             document.querySelectorAll('.markdown-cell').forEach(function(el) {
-                var html = el.innerHTML;
-                html = html.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, function(m, math) {
-                    try { return katex.renderToString(math.trim(), { displayMode: true, throwOnError: false }); }
-                    catch(e) { return m; }
-                });
-                html = html.replace(/\\$([^\\$\\n]+?)\\$/g, function(m, math) {
-                    try { return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }); }
-                    catch(e) { return m; }
-                });
-                el.innerHTML = html;
+                renderPreviewMath(el);
             });
             document.querySelectorAll('.code-source code, .markdown-cell pre code').forEach(function(el) {
                 hljs.highlightElement(el);
@@ -64,7 +55,7 @@ public final class NotebookRenderer: Renderer {
         </script>
         """
 
-        return HTMLTemplate.wrap(body: body, rendererType: "notebook", nonce: nonce)
+        return HTMLTemplate.wrap(body: body, rendererType: "notebook", nonce: nonce, allowExternalImages: config.global.allowExternalImages)
     }
 
     private func renderMarkdownCell(_ cell: Cell) -> String {

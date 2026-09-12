@@ -71,5 +71,7 @@ enum ScriptEscaping {
             range: NSRange(string.startIndex..., in: string),
             withTemplate: "<\\\\/script"
         )
+        // Preserve the JS value without entering HTML's double-escaped state.
+        .replacingOccurrences(of: "<!--", with: "<\\x21--")
     }
 }

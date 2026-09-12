@@ -16,7 +16,7 @@ public final class MarkdownRenderer: Renderer {
             var container = document.getElementById('markdown-content');
             container.innerHTML = marked.parse(raw);
 
-            renderMathInElement(container);
+            renderPreviewMath(container);
             highlightCodeBlocks(container);
         });
 
@@ -25,8 +25,7 @@ public final class MarkdownRenderer: Renderer {
         // fence rendered unhighlighted. Highlighting is driven here instead,
         // the same way the notebook renderer drives it.
         //
-        // Runs after the math pass, whose innerHTML round-trip would otherwise
-        // re-parse these spans. hljs.highlightElement reads the element's
+        // The math pass excludes code. hljs.highlightElement reads the element's
         // textContent and writes back its own escaped markup, so nothing that
         // marked already escaped is reintroduced to the DOM as raw source.
         function highlightCodeBlocks(container) {
@@ -36,22 +35,8 @@ public final class MarkdownRenderer: Renderer {
             }
         }
 
-        function renderMathInElement(element) {
-            var text = element.innerHTML;
-            text = text.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, function(match, math) {
-                try {
-                    return katex.renderToString(math.trim(), { displayMode: true, throwOnError: false });
-                } catch(e) { return match; }
-            });
-            text = text.replace(/\\$([^\\$\\n]+?)\\$/g, function(match, math) {
-                try {
-                    return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
-                } catch(e) { return match; }
-            });
-            element.innerHTML = text;
-        }
         </script>
         """
-        return HTMLTemplate.wrap(body: body, rendererType: "markdown", nonce: nonce)
+        return HTMLTemplate.wrap(body: body, rendererType: "markdown", nonce: nonce, allowExternalImages: config.global.allowExternalImages)
     }
 }

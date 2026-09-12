@@ -24,6 +24,12 @@ enforced rather than asserted: `script-src` names one fresh per-document nonce a
 else. It is written down here so nobody re-derives it from the code — and because an
 earlier version of this note got the notebook path wrong (see below).
 
+> **2026-09-12 correction:** The bug-fix task changes remote images to default-off
+> with a Settings opt-in, enforced by the native loader. Legacy configs also default
+> off; opt-in preserves timeout/size limits. The passages below describing automatic
+> remote images are historical. Current policy and validation are recorded in
+> `docs/validation/2026-09-12-bug-fixes.md` and the updated feature spec.
+
 What is true:
 
 - Plain text and attribute values require escaping for their HTML destination.

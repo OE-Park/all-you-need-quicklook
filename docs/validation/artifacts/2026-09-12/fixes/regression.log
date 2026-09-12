@@ -1,0 +1,4 @@
+2026-09-12 INFO Preview fix verification
+2026-09-12 WARN a < b & c
+2026-09-12 ERROR Unicode preserved: 😀 한글
+2026-09-12 DEBUG Remaining text is readable
