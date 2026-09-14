@@ -1,3 +1,4 @@
+// Tests/RendererRegressionTests.swift
 import WebKit
 import XCTest
 @testable import Shared
@@ -15,6 +16,17 @@ final class RendererRegressionTests: XCTestCase {
             XCTAssertTrue(text.contains("Literal $HOME$."), text)
             let code = try await string("document.getElementById('raw-code').textContent", in: web)
             XCTAssertEqual(code, "$RAW$", ext)
+        }
+    }
+
+    func testMathDecodesExistingEntitiesOnceInMarkdownAndNotebook() async throws {
+        // marked leaves valid entities in text intact; math source must match, not re-encode them.
+        let source = #"Inline $a &lt; b$, $$c &gt; d$$ and $p \& q$"#
+        for ext in ["md", "ipynb"] {
+            let renderer: any Renderer = ext == "md" ? MarkdownRenderer() : NotebookRenderer()
+            let web = try await load(renderer, ext == "md" ? source : notebook(source), ext: ext)
+            let math = try await string("Array.from(document.querySelectorAll('.katex annotation')).map(e => e.textContent).join('|')", in: web)
+            XCTAssertEqual(math, #"a < b|c > d|p \& q"#, ext)
         }
     }
 

@@ -1,3 +1,4 @@
+// Shared/Resources/js/render-math.js
 // Render only text nodes. Never reinterpret markup, code, or generated math.
 (function (root) {
     'use strict';
@@ -6,7 +7,9 @@
     // A closing dollar must not be escaped. Keep the raw delimiters for the DOM pass.
     const mathSource = String.raw`\$\$((?:\\[\s\S]|[^\\])*?)\$\$|\$((?:\\[^\n]|[^\\$\n])+?)\$`;
     const mathToken = new RegExp('^(?:' + mathSource + ')');
-    const escapeText = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Same rule as marked's text escaping: an existing entity reaches the DOM decoded once.
+    const escapeText = text => text.replace(/&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, '&amp;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
     // Preserve Markdown escape intent before marked removes the backslash.
     // Inline extensions do not run inside fenced or inline code tokens.
     marked.use({ extensions: [{

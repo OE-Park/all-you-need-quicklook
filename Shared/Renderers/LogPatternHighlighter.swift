@@ -1,3 +1,4 @@
+// Shared/Renderers/LogPatternHighlighter.swift
 import Foundation
 import JavaScriptCore
 
