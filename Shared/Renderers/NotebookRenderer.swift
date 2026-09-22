@@ -48,10 +48,37 @@ public final class NotebookRenderer: Renderer {
             document.querySelectorAll('.markdown-cell').forEach(function(el) {
                 renderPreviewMath(el);
             });
-            document.querySelectorAll('.code-source code, .markdown-cell pre code').forEach(function(el) {
-                hljs.highlightElement(el);
-            });
+            document.querySelectorAll('.code-source code, .markdown-cell pre code').forEach(highlightBlock);
         });
+
+        // Same contract as the markdown renderer: the bundled highlight.js is
+        // the `common` build, and for a language it has no grammar for
+        // hljs.highlightElement only warns to the console and leaves the block
+        // bare. Code cells carry no language class at all, so they fall
+        // straight through to detection; a fence inside a markdown cell can
+        // name anything.
+        function highlightBlock(block) {
+            var declared = '';
+            var match = /(?:^|\\s)language-([^\\s]+)/.exec(block.className || '');
+            if (match) { declared = match[1]; }
+
+            try {
+                if (declared && hljs.getLanguage(declared)) {
+                    hljs.highlightElement(block);
+                    return;
+                }
+                var result = hljs.highlightAuto(block.textContent);
+                block.innerHTML = result.value;
+                block.classList.add('hljs');
+                if (declared) {
+                    block.setAttribute('data-unhighlighted-language', declared);
+                }
+            } catch (e) {
+                if (declared) {
+                    block.setAttribute('data-unhighlighted-language', declared);
+                }
+            }
+        }
         </script>
         """
 
