@@ -78,6 +78,20 @@ targets:
               - com.apple.log
               - net.daringfireball.markdown
               - org.jupyter.notebook
+              # public.json / public.yaml / public.toml hang off public.text
+              # directly -- they do NOT conform to public.plain-text -- so
+              # without naming each one quicklookd never considers this
+              # extension for a .json, .yaml/.yml, .toml or .cfg file and logs
+              # nothing at all. Verified with UTType on macOS 26.
+              #
+              # Source code (.swift, .py, .js, .go ...) needs no entry: those
+              # types reach public.plain-text through public.source-code.
+              # Deliberately absent: public.xml and .csv-style delimited text
+              # are left to the system preview, and .ts resolves to
+              # public.mpeg-2-transport-stream, a movie type.
+              - public.json
+              - public.yaml
+              - public.toml
         UTExportedTypeDeclarations:
           - UTTypeIdentifier: org.jupyter.notebook
             UTTypeDescription: Jupyter Notebook

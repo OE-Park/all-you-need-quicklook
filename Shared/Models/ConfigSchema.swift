@@ -79,14 +79,28 @@ public struct ResolvedFileTypeConfig: Sendable {
 }
 
 extension FileTypeConfig {
-    public func resolved(with global: GlobalConfig) -> ResolvedFileTypeConfig {
-        ResolvedFileTypeConfig(
+    /// Resolves this entry against the global defaults for a concrete file.
+    ///
+    /// `fileExtension` is what lets an unconfigured — or bare, Settings-added —
+    /// entry still highlight: with no explicit `syntaxLanguage`, the extension
+    /// is looked up in `SyntaxLanguageMap`, and highlighting defaults on only
+    /// when that lookup found a grammar the bundled highlight.js actually has.
+    /// Explicit values always win, in both directions.
+    ///
+    /// Log level patterns suppress the lookup. `PlainTextRenderer` takes the
+    /// hljs branch whenever a language is present, so inferring one for a file
+    /// configured with patterns would silently discard them.
+    public func resolved(with global: GlobalConfig, fileExtension: String) -> ResolvedFileTypeConfig {
+        let hasLogPatterns = !(logLevelPatterns?.isEmpty ?? true)
+        let language = syntaxLanguage
+            ?? (hasLogPatterns ? nil : SyntaxLanguageMap.language(forExtension: fileExtension))
+        return ResolvedFileTypeConfig(
             fontFamily: fontFamily ?? global.fontFamily,
             fontSize: fontSize ?? global.fontSize,
             lineHeight: lineHeight ?? global.lineHeight,
             showLineNumbers: showLineNumbers ?? global.showLineNumbers,
-            syntaxHighlight: syntaxHighlight ?? false,
-            syntaxLanguage: syntaxLanguage,
+            syntaxHighlight: syntaxHighlight ?? (language != nil),
+            syntaxLanguage: language,
             logLevelPatterns: logLevelPatterns
         )
     }
@@ -109,6 +123,6 @@ public struct AppConfig: Codable, Equatable, Sendable {
 
     public func resolvedConfig(for fileExtension: String) -> ResolvedFileTypeConfig {
         let fileType = fileTypes?[fileExtension] ?? FileTypeConfig()
-        return fileType.resolved(with: global)
+        return fileType.resolved(with: global, fileExtension: fileExtension)
     }
 }
