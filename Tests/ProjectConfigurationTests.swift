@@ -5,13 +5,7 @@ import XCTest
 final class ProjectConfigurationTests: XCTestCase {
 
     func testQuickLookContentTypesAreNestedUnderExtensionAttributes() throws {
-        let infoURL = repositoryRoot
-            .appendingPathComponent("QuickLookExtension")
-            .appendingPathComponent("Info.plist")
-        let data = try Data(contentsOf: infoURL)
-        let propertyList = try XCTUnwrap(
-            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-        )
+        let propertyList = try extensionInfoPlist()
         let extensionDictionary = try XCTUnwrap(propertyList["NSExtension"] as? [String: Any])
         let attributes = try XCTUnwrap(extensionDictionary["NSExtensionAttributes"] as? [String: Any])
         let contentTypes = try XCTUnwrap(attributes["QLSupportedContentTypes"] as? [String])
@@ -45,14 +39,49 @@ final class ProjectConfigurationTests: XCTestCase {
         }
     }
 
-    /// Source code already reaches the extension through public.plain-text,
-    /// which is why those extensions are deliberately not listed.
-    func testSourceCodeAlreadyConformsToPlainText() throws {
+    /// Source code the system itself types reaches the extension through
+    /// public.source-code -> public.plain-text, which is why those extensions
+    /// are deliberately not listed.
+    func testSystemSourceCodeAlreadyConformsToPlainText() throws {
         let plainText = try XCTUnwrap(UTType("public.plain-text"))
-        for ext in ["swift", "py", "js", "go", "rs", "sh"] {
+        for ext in ["swift", "py", "js", "sh"] {
             let type = try XCTUnwrap(UTType(filenameExtension: ext), ".\(ext) has no type")
             XCTAssertTrue(type.conforms(to: plainText), ".\(ext) needs its own entry after all")
         }
+    }
+
+    /// macOS does not type .go or .rs. They only resolve to source code where
+    /// some other app (an editor) imports them; on a clean Mac -- the CI
+    /// runner is one -- they are dynamic types and quicklookd never asks this
+    /// extension. Asserting the system type tree here would only test which
+    /// apps the machine has, so this asserts the extension's own import.
+    func testExtensionImportsSourceTypesTheSystemDoesNotDeclare() throws {
+        let declarations = try XCTUnwrap(
+            try extensionInfoPlist()["UTImportedTypeDeclarations"] as? [[String: Any]]
+        )
+        var conformanceByExtension: [String: [String]] = [:]
+        for declaration in declarations {
+            let tags = declaration["UTTypeTagSpecification"] as? [String: Any]
+            for ext in tags?["public.filename-extension"] as? [String] ?? [] {
+                conformanceByExtension[ext] = declaration["UTTypeConformsTo"] as? [String]
+            }
+        }
+        for ext in ["go", "rs"] {
+            XCTAssertEqual(
+                conformanceByExtension[ext], ["public.source-code"],
+                ".\(ext) is not imported as source code"
+            )
+        }
+    }
+
+    private func extensionInfoPlist() throws -> [String: Any] {
+        let infoURL = repositoryRoot
+            .appendingPathComponent("QuickLookExtension")
+            .appendingPathComponent("Info.plist")
+        let data = try Data(contentsOf: infoURL)
+        return try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        )
     }
 
     private var repositoryRoot: URL {

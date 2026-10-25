@@ -84,8 +84,10 @@ targets:
               # extension for a .json, .yaml/.yml, .toml or .cfg file and logs
               # nothing at all. Verified with UTType on macOS 26.
               #
-              # Source code (.swift, .py, .js, .go ...) needs no entry: those
-              # types reach public.plain-text through public.source-code.
+              # Source code the system types (.swift, .py, .js, .sh ...) needs
+              # no entry: it reaches public.plain-text through
+              # public.source-code. .go and .rs are not system types; see
+              # UTImportedTypeDeclarations below.
               # Deliberately absent: public.xml and .csv-style delimited text
               # are left to the system preview, and .ts resolves to
               # public.mpeg-2-transport-stream, a movie type.
@@ -100,6 +102,27 @@ targets:
             UTTypeTagSpecification:
               public.filename-extension:
                 - ipynb
+        # macOS declares no type for .go or .rs. Where an editor imports one
+        # they resolve to source code; on a clean Mac they are dynamic types
+        # that conform to nothing, and quicklookd never asks this extension.
+        # Importing them gives the public.plain-text route on every Mac. The
+        # identifiers match the ones editors such as CotEditor import, so the
+        # two declarations agree wherever both exist.
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: org.golang.go-script
+            UTTypeDescription: Go Source
+            UTTypeConformsTo:
+              - public.source-code
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - go
+          - UTTypeIdentifier: org.rust-lang.rust-script
+            UTTypeDescription: Rust Source
+            UTTypeConformsTo:
+              - public.source-code
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - rs
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     entitlements:

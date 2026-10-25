@@ -67,5 +67,42 @@
 			</dict>
 		</dict>
 	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Go Source</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.golang.go-script</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>go</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Rust Source</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.rust-lang.rust-script</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>rs</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>
