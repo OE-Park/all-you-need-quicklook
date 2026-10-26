@@ -228,7 +228,32 @@ public enum HTMLTemplate {
                 }
             });
 
-            document.querySelectorAll('img[src]').forEach(function(image) {
+            document.querySelectorAll('img').forEach(function(image) {
+                // Quarantine responsive candidates too. CSP blocks requests
+                // before parsing, including candidates chosen before this pass.
+                var picture = image.closest('picture');
+                var candidates = [image.getAttribute('src') || '', image.getAttribute('srcset') || ''];
+                if (picture) {
+                    picture.querySelectorAll('source[srcset]').forEach(function(source) {
+                        candidates.push(source.getAttribute('srcset') || '');
+                    });
+                }
+                var remoteCandidate = candidates.some(function(value) {
+                    return value.split(/[\\s,]+/).some(function(part) {
+                        return /^(https?:)?\\/\\//i.test(part);
+                    });
+                });
+                if (remoteCandidate) {
+                    image.removeAttribute('src');
+                    image.removeAttribute('srcset');
+                    if (picture) { picture.querySelectorAll('source').forEach(function(source) { source.remove(); }); }
+                    var blocked = document.createElement('div');
+                    blocked.className = 'placeholder-image external-image-blocked';
+                    blocked.textContent = 'External image blocked. Remote images are unavailable in this version.';
+                    image.replaceWith(blocked);
+                    return;
+                }
+                image.loading = 'eager';
                 var raw = (image.getAttribute('src') || '').trim();
                 if (raw === '') {
                     return;
@@ -262,10 +287,10 @@ public enum HTMLTemplate {
                     return;
                 }
                 var remote = source.protocol === 'http:' || source.protocol === 'https:';
-                if (!\(allowExternalImages ? "true" : "false") && remote) {
+                if (remote) {
                     var blocked = document.createElement('div');
                     blocked.className = 'placeholder-image external-image-blocked';
-                    blocked.textContent = 'External image blocked. Allow external images in Settings to load it.';
+                    blocked.textContent = 'External image blocked. Remote images are unavailable in this version.';
                     image.replaceWith(blocked);
                     return;
                 }
@@ -273,15 +298,7 @@ public enum HTMLTemplate {
                     return;
                 }
 
-                // WebKit loads the remote image itself. A host that never
-                // answers fires no `error`, so a timer swaps in the same
-                // placeholder if nothing has decoded by then.
-                image.addEventListener('error', unavailable, { once: true });
-                setTimeout(function() {
-                    if (!image.complete || image.naturalWidth === 0) {
-                        unavailable();
-                    }
-                }, \(imageTimeoutSeconds) * 1000);
+
             });
             document.documentElement.dataset.quicklookReady = 'true';
         });

@@ -109,9 +109,8 @@ Settings pattern validation remain future work. The [handoff](docs/superpowers/H
 links the authority for current implementation and validation. Avoid copying
 checkpoint hashes or test counts here; they become stale.
 
-The host UI integration keeps remote images in WebKit (CSP `img-src` plus the
-Settings switch, timeout in the template's image script; no Swift image
-transport), private bundled fonts, and escaping fixes alongside explicit nonce plumbing.
+The host UI integration keeps remote images quarantined until the 25 MiB response cap can be enforced
+(CSP blocks HTTP(S) even for legacy opt-in settings; no unbounded transport), private bundled fonts, and escaping fixes alongside explicit nonce plumbing.
 Finder Space checks for .md/.ipynb/.log passed on the host integration build;
 its running extension path was verified and prior registrations restored.
 
@@ -195,8 +194,9 @@ the same repository is separate state. Confirm branch, HEAD and dirty files.
 - Separate compilation, unit/string assertions, live WKWebView, visual and Finder
   results. A successful host preview does not establish Finder routing. Random
   test builds identify themselves in Finder with `Test build <suffix>`.
-- Finder remote-image downloads failed in the current validation despite network
-  entitlements and successful host-side WKWebView tests. Preserve safe fallback;
-  do not widen CSP or sandbox privileges speculatively.
-- The latest status authority is `docs/validation/2026-10-26-runtime-and-file-types.md`.
+- Remote images are now deliberately blocked until an enforceable 25 MiB
+  response cap exists. Legacy opt-in values cannot bypass CSP. Embedded/local
+  images remain supported; do not restore unbounded network transport.
+- The current status authority is `PROJECT_STATUS.md`; review/clean-install evidence is
+  `docs/validation/2026-10-26-pr-review-clean-install.md`.
   Keep pending checks explicit. Projects daily-note rules still apply.

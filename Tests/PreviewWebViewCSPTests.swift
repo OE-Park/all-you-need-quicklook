@@ -144,9 +144,9 @@ final class PreviewWebViewCSPTests: XCTestCase {
         XCTAssertEqual(try directive("img-src", allowExternalImages: false), ["data:", "quicklook-local:"])
     }
 
-    func testImagesOnAddsHTTPAndHTTPS() throws {
+    func testLegacyImagesOnCannotBypassResponseLimitPolicy() throws {
         XCTAssertEqual(try directive("img-src", allowExternalImages: true),
-                       ["data:", "quicklook-local:", "http:", "https:"])
+                       ["data:", "quicklook-local:"])
     }
 
     func testPolicyKeepsDataURIFonts() throws {

@@ -1,12 +1,14 @@
 // AllYouNeedQuickLook/Views/SettingsView.swift
 import SwiftUI
 import Shared
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @State private var config: AppConfig
     @State private var newExtension = ""
     @State private var saveError: String?
     @State private var statusMessage: String?
+    @State private var showingImport = false
     private let support = FileTypeSupport.bundled()
     private let loader = ConfigLoader()
 
@@ -27,12 +29,14 @@ struct SettingsView: View {
                         .monospacedDigit()
                 }
                 Toggle("Show Line Numbers", isOn: $config.global.showLineNumbers)
-                Toggle("Allow External Images", isOn: $config.global.allowExternalImages)
-                Text("External images can contact internet or local network servers and reveal when a file is previewed. Finder may restrict network access; unavailable images show a placeholder.")
+                Toggle("Allow External Images", isOn: .constant(false))
+                    .disabled(true)
+                Text("Remote images are unavailable in this version. Embedded and local images still work.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Stepper("Image Timeout: \(config.global.imageTimeoutSeconds)s",
                         value: $config.global.imageTimeoutSeconds, in: 1...30)
+                    .disabled(true)
             }
 
             Section("File Type Settings") {
@@ -57,11 +61,9 @@ struct SettingsView: View {
                         .textFieldStyle(.roundedBorder)
                     Button("Add") {
                         do {
-                            let updated = try support.adding(newExtension, to: config)
-                            try loader.save(updated)
-                            config = updated
+                            config = try loader.saveAddedFileType(newExtension, draft: config)
                             let ext = FileTypeSupport.normalizedExtension(newExtension)!
-                            statusMessage = ".\(ext) saved. " + supportDescription(for: ext)
+                            statusMessage = ".\(ext) saved. Other draft edits still require Save. " + supportDescription(for: ext)
                             newExtension = ""
                         } catch { saveError = error.localizedDescription }
                     }
@@ -78,6 +80,7 @@ struct SettingsView: View {
                         config = ConfigLoader.bundledDefault()
                         save()
                     }
+                    Button("Import Settings JSON…") { showingImport = true }
                     Spacer()
                     Button("Save") { save() }
                         .buttonStyle(.borderedProminent)
@@ -86,6 +89,18 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .fileImporter(isPresented: $showingImport, allowedContentTypes: [.json]) { result in
+            do {
+                let url = try result.get()
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                try loader.importConfiguration(from: url)
+                config = loader.load()
+                statusMessage = "Settings imported. Reopen the Finder preview to apply them."
+            } catch {
+                if (error as NSError).code != NSUserCancelledError { saveError = error.localizedDescription }
+            }
+        }
         .alert(
             "Could not save settings",
             isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })

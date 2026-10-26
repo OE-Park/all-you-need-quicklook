@@ -48,13 +48,15 @@ public final class ConfigLoader: Sendable {
     /// default with `isUnreadable == false`. A file that exists but cannot be
     /// read or decoded yields the same default with `isUnreadable == true`.
     public func loadResult() -> ConfigLoadResult {
-        guard FileManager.default.fileExists(atPath: configFileURL.path) else {
-            return ConfigLoadResult(config: Self.bundledDefault(), isUnreadable: false)
-        }
         do {
             let data = try Data(contentsOf: configFileURL)
             return ConfigLoadResult(config: try JSONDecoder().decode(AppConfig.self, from: data), isUnreadable: false)
         } catch {
+            let errorCode = (error as NSError)
+            if errorCode.domain == NSCocoaErrorDomain &&
+                (errorCode.code == NSFileReadNoSuchFileError || errorCode.code == NSFileNoSuchFileError) {
+                return ConfigLoadResult(config: Self.bundledDefault(), isUnreadable: false)
+            }
             Self.logger.error("Could not read \(self.configFileURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
             return ConfigLoadResult(config: Self.bundledDefault(), isUnreadable: true)
         }
@@ -67,6 +69,23 @@ public final class ConfigLoader: Sendable {
         try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
         try data.write(to: configFileURL, options: .atomic)
         NotificationCenter.default.post(name: Self.didSave, object: nil)
+    }
+
+    /// Persist only the new extension against disk state; keep unrelated draft edits in memory.
+    public func saveAddedFileType(_ input: String, draft: AppConfig) throws -> AppConfig {
+        let support = FileTypeSupport(supportedTypeIdentifiers: [])
+        let current = loadResult()
+        guard !current.isUnreadable else { throw CocoaError(.fileReadNoPermission) }
+        let saved = try support.adding(input, to: current.config)
+        if saved != current.config { try save(saved) }
+        return try support.adding(input, to: draft)
+    }
+
+    /// Explicit user-selected import, including readable legacy App Group JSON.
+    /// Decode before writing, so a malformed import never replaces saved settings.
+    public func importConfiguration(from url: URL) throws {
+        let config = try JSONDecoder().decode(AppConfig.self, from: Data(contentsOf: url))
+        try save(config)
     }
 
     /// The shipped default configuration — `Shared/Resources/default-config.json`.

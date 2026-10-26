@@ -261,3 +261,13 @@ All renderers use CSS variables, ensuring consistent theming across file types.
 - **Phase 1:** GitHub Release with unsigned `.zip`/`.dmg` (users run `xattr -cr` to allow)
 - **Phase 2:** Apple Developer Program enrollment → code signing + notarization for seamless installation
 - Homebrew Cask registration considered for future
+
+## 2026-10-26 review resource-limit correction
+
+The 25 MiB response cap remains binding. Until a supported transport can enforce
+it, this version does not offer external network images: CSP blocks HTTP(S),
+including responsive/lazy forms and legacy opt-in settings. Embedded and
+validated local images continue to work. This temporarily supersedes the
+external-image opt-in/timeout behavior above; it does not remove the cap.
+Settings supports explicit JSON import rather than automatic App Group
+migration, which would revive old settings after a requested clean reset.

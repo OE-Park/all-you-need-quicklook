@@ -19,6 +19,10 @@ public final class PreviewWebView: WKWebView {
     /// `contentSecurityPolicy(nonce:allowExternalImages:)`, into `cspUserScriptSource(nonce:allowExternalImages:)`'s JS
     /// string and into `HTMLTemplate.wrap`'s `<script nonce="…">` with no
     /// escaping step that could later be forgotten.
+    /// Network images stay quarantined until a transport can enforce the
+    /// original 25 MiB response limit. Legacy opt-in values cannot bypass CSP.
+    public nonisolated static let remoteImagesAvailable = false
+
     public nonisolated static func makeNonce() -> String {
         var bytes = [UInt8](repeating: 0, count: 16)
         let status = bytes.withUnsafeMutableBytes { buffer -> Int32 in
@@ -52,11 +56,10 @@ public final class PreviewWebView: WKWebView {
     /// be ignored in its presence by CSP2-era parsers and, more to the point,
     /// it is the thing being removed), no `'strict-dynamic'`, no host.
     ///
-    /// `img-src` is the gate for images. Off, it names `data:` and
-    /// `quicklook-local:` only; on, it adds `http:` and `https:` and WebKit
-    /// loads the remote image itself. A Swift-side fetch cannot work here:
-    /// `URLSession` inside the Quick Look extension process cannot resolve
-    /// hosts, while a web view's own `<img>` subresources can.
+    /// `img-src` permits only embedded data and validated local images.
+    /// HTTP(S) remains blocked even for legacy opt-in settings: WebKit does
+    /// not expose an enforceable byte cap for these subresources. Re-enabling
+    /// network images requires preserving the original 25 MiB response limit.
     /// Bundled fonts retain their private resource scheme; scripts and styles
     /// stay inline and no script supplied by a preview receives a nonce.
     ///
@@ -72,7 +75,7 @@ public final class PreviewWebView: WKWebView {
     /// by `cspUserScriptSource(nonce:allowExternalImages:)`. `makeNonce()`'s base64 output holds
     /// that invariant for the one part of the string that varies.
     public nonisolated static func contentSecurityPolicy(nonce: String, allowExternalImages: Bool) -> String {
-        let imageSources = allowExternalImages ? "data: quicklook-local: http: https:" : "data: quicklook-local:"
+        let imageSources = "data: quicklook-local:"
         return "default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline'; "
         + "img-src \(imageSources); font-src data: quicklook-resource://bundle; base-uri 'none'; form-action 'none';"
     }
@@ -125,13 +128,13 @@ public final class PreviewWebView: WKWebView {
     /// the app reads it.
     public private(set) var installedNonce: String
 
-    /// Whether this view's policy admits remote `http:`/`https:` images.
-    /// Fixed for the view's lifetime; a settings change replaces the view.
+    /// Legacy requested setting, retained for config/source compatibility.
+    /// It does not override the current network-image quarantine.
     public let allowExternalImages: Bool
 
     /// `imageTimeoutSeconds` is kept for source compatibility and is unused:
-    /// the timeout is enforced by the document's own script (see
-    /// `HTMLTemplate.wrap(imageTimeoutSeconds:)`), not by this view.
+    /// remote images are blocked before a request can start. A future bounded
+    /// transport must own timeout enforcement as well as the response byte cap.
     public init(frame: CGRect = .zero, imageTimeoutSeconds: TimeInterval = 3, allowExternalImages: Bool = false) {
         let resourceHandler = BundledResourceSchemeHandler()
         self.resourceHandler = resourceHandler

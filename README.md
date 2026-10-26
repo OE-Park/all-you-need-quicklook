@@ -4,6 +4,11 @@ A macOS 15+ SwiftUI app and Finder Quick Look extension for Markdown, logs,
 source/text files, JSON/YAML/TOML and Jupyter notebooks. Shared renderers use
 bundled marked, highlight.js, KaTeX and Plotly inside a restricted WKWebView.
 
+## Project status
+
+See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the active checkout, branch/PR,
+implementation status, verification results, sample/build locations and next work.
+
 ## Development
 
 Requires Xcode, XcodeGen and Python 3.
@@ -41,10 +46,16 @@ This enables the extension; it does not add file types or guarantee which
 provider macOS chooses when several qualify. XML, CSV and movie-typed `.ts`
 files are left to macOS. Text routing can also use the system provider.
 
-Remote images default off. Enabling them permits WebKit image requests under
-CSP, but Finder's sandbox may still block networking; failures/timeouts become
-placeholders. The current machine's successful gate/timeout tests must not be
-reported as successful Finder downloads.
+Remote images are unavailable in this version: direct WebKit image loading does
+not expose an enforceable 25 MiB response cap. CSP refuses HTTP(S) images even
+for imported legacy opt-in settings. Embedded and validated local images remain
+available; responsive/lazy remote candidates receive a blocked placeholder.
+The disabled Settings controls make this limitation visible.
+
+Use **Import Settings JSON…** to explicitly restore a readable previous config,
+including an exported App Group config. Import validates JSON before replacing
+current settings. No automatic migration runs, so a clean reset cannot revive
+old settings. Add saves only the extension; unrelated form edits still need Save.
 
 ## Current evidence
 

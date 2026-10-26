@@ -84,6 +84,47 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(r.config, ConfigLoader.bundledDefault())
     }
 
+    func testAddPersistsOnlyExtensionAndRetainsOtherDraftEdits() throws {
+        let loader = ConfigLoader(containerURL: tempDir)
+        let saved = ConfigLoader.bundledDefault()
+        try loader.save(saved)
+        var draft = saved
+        draft.global.fontSize = 29
+        draft.global.allowExternalImages = true
+        draft.fileTypes?["log"]?.showLineNumbers = false
+        let result = try loader.saveAddedFileType(" .YAML ", draft: draft)
+        let disk = loader.load()
+        XCTAssertEqual(disk.global, saved.global)
+        XCTAssertEqual(disk.fileTypes?["log"], saved.fileTypes?["log"])
+        XCTAssertNotNil(disk.fileTypes?["yaml"])
+        XCTAssertEqual(result.global, draft.global)
+        XCTAssertEqual(result.fileTypes?["log"], draft.fileTypes?["log"])
+        XCTAssertNotNil(result.fileTypes?["yaml"])
+    }
+
+    func testInaccessibleDirectoryIsUnreadableInsteadOfMissing() throws {
+        if geteuid() == 0 { throw XCTSkip("root bypasses directory permissions") }
+        let denied = tempDir.appendingPathComponent("denied")
+        try FileManager.default.createDirectory(at: denied, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: denied.appendingPathComponent("config.json"))
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: denied.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: denied.path) }
+        XCTAssertTrue(ConfigLoader(containerURL: denied).loadResult().isUnreadable)
+    }
+
+    func testExplicitImportAndInvalidImportPreserveSavedSettings() throws {
+        let loader = ConfigLoader(containerURL: tempDir)
+        let source = tempDir.appendingPathComponent("legacy.json")
+        var legacy = AppConfig()
+        legacy.global.fontSize = 23
+        try JSONEncoder().encode(legacy).write(to: source)
+        try loader.importConfiguration(from: source)
+        XCTAssertEqual(loader.load(), legacy)
+        try Data("{".utf8).write(to: source)
+        XCTAssertThrowsError(try loader.importConfiguration(from: source))
+        XCTAssertEqual(loader.load(), legacy)
+    }
+
     // MARK: - The bundled default
 
     /// What "Reset to Default" writes. `AppConfig()` is *not* that default — it

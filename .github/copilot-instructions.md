@@ -65,16 +65,9 @@ In the recorded Finder checks, `.md`, `.ipynb` and `.log` used the extension; `.
 A green build and a green suite are not evidence that a preview renders. This project has twice shipped code that built, passed every test, passed every review, and was dead on arrival — caught only by running the real app. When reviewing, prefer findings you can state as a concrete failure, and distinguish what passing assertions establish from untested runtime behavior. Existing tests do not validate an unimplemented design.
 
 Resource integration: bundled JS/CSS stay inline with explicit document nonces.
-Remote images load through WebKit, gated by CSP `img-src` and the Settings
-switch (default off); the timeout lives in the template's image script. Relative
-images go through the image-only `quicklook-local:` handler; bundled fonts use
-`quicklook-resource://bundle`. Do not reintroduce a Swift/`URLSession` image
-transport: the Quick Look extension process cannot reach the network, so CSP
-`img-src` is the gate. Do not restore externally linked script tags or remove
-the image timeout while resolving future merges.
-
-Current Finder validation is in `docs/validation/2026-10-26-runtime-and-file-types.md`.
-In that session remote images remained unavailable in the actual Finder sandbox
-even with the setting on; WebKit transport/gating tests are not evidence that
-Finder downloads succeed. Keep this unresolved status separate from the code
-path description above.
+Remote images are quarantined: HTTP(S) is absent from img-src even for legacy
+allowExternalImages=true. Direct WebKit subresources cannot enforce the required
+25 MiB response cap. Do not restore unbounded transport. Validated local images
+use quicklook-local:, bundled fonts quicklook-resource://bundle, and scripts
+remain inline with document nonces. Review fixes and clean installation are
+recorded in docs/validation/2026-10-26-pr-review-clean-install.md.

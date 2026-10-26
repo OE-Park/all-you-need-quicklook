@@ -113,14 +113,30 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         XCTAssertEqual(silent.connectionCount, 0, "a remote image request reached the server with images off")
     }
 
-    func testRemoteImageReachesServerWhenOn() async throws {
+    func testLegacyImagesOnSendsNoRequestUntilByteLimitCanBeEnforced() async throws {
         let silent = try await SilentListener.start()
         defer { silent.stop() }
 
         try await loadRemoteImage(allowExternalImages: true, port: silent.port)
         try await Task.sleep(for: .milliseconds(500))
 
-        XCTAssertGreaterThanOrEqual(silent.connectionCount, 1, "the probe saw no connection with images on")
+        XCTAssertEqual(silent.connectionCount, 0, "legacy opt-in bypassed the response-size policy")
+    }
+
+    func testResponsiveAndLazyRemoteImagesAreBlockedWithoutRequests() async throws {
+        let silent = try await SilentListener.start()
+        defer { silent.stop() }
+        let url = "http://127.0.0.1:\(silent.port)/large.png"
+        let html = HTMLTemplate.wrap(body: """
+            <img srcset="\(url) 1x">
+            <picture><source srcset="\(url) 1x"><img src="data:image/png;base64,aA=="></picture>
+            <img loading="lazy" style="margin-top:10000px" src="\(url)">
+            """, rendererType: "markdown", nonce: nonce, allowExternalImages: true)
+        let web = PreviewWebView(allowExternalImages: true)
+        web.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
+        try await waitUntilTrue(in: web, expression: "document.querySelectorAll('.external-image-blocked').length === 3")
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(silent.connectionCount, 0)
     }
 
     private func loadRemoteImage(allowExternalImages: Bool, port: UInt16) async throws {
@@ -138,43 +154,16 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         )
     }
 
-    /// Review Focus 5: an allowed remote image whose host accepts the
-    /// connection but never answers must not stay a broken icon forever.
-    ///
-    /// A loopback listener that holds connections open makes the host's
-    /// silence deterministic: no `error` event can fire, so the placeholder
-    /// can only come from the timer.
-    func testUnansweredRemoteImageBecomesPlaceholderAfterTimeout() async throws {
+    func testUnansweredRemoteImageIsBlockedBeforeStartingARequest() async throws {
         let silent = try await SilentListener.start()
         defer { silent.stop() }
-        let html = HTMLTemplate.wrap(
-            body: "<img id=\"slow\" src=\"http://127.0.0.1:\(silent.port)/x.png\">",
-            rendererType: "markdown", nonce: nonce,
-            allowExternalImages: true, imageTimeoutSeconds: 1
-        )
-        let webView = PreviewWebView(allowExternalImages: true)
-
-        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
-        try await waitUntilTrue(
-            in: webView,
-            expression: "document.documentElement.dataset.quicklookReady === 'true'"
-        )
-
-        try await Task.sleep(for: .milliseconds(300))
-        let imageBeforeTimeout = try await webView.evaluateJavaScript(
-            "document.getElementById('slow') !== null && document.querySelector('.placeholder-image') === null"
-        ) as? Bool
-        XCTAssertEqual(imageBeforeTimeout, true, "the placeholder appeared before the timeout elapsed")
-
-        try await waitUntilTrue(
-            in: webView,
-            expression: "document.querySelector('.placeholder-image')?.textContent === 'Image unavailable'",
-            attempts: 50
-        )
-        let imageStillThere = try await webView.evaluateJavaScript(
-            "document.getElementById('slow') !== null"
-        ) as? Bool
-        XCTAssertEqual(imageStillThere, false)
+        let html = HTMLTemplate.wrap(body: "<img src=\"http://127.0.0.1:\(silent.port)/x.png\">",
+                                     rendererType: "markdown", nonce: nonce,
+                                     allowExternalImages: true, imageTimeoutSeconds: 1)
+        let web = PreviewWebView(allowExternalImages: true)
+        web.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
+        try await waitUntilTrue(in: web, expression: "document.querySelector('.external-image-blocked') !== null")
+        XCTAssertEqual(silent.connectionCount, 0)
     }
 
     func testNoQuicklookImageSchemeRemains() {

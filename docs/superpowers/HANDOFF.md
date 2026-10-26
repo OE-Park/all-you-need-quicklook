@@ -1,10 +1,13 @@
 # Current delivery checkpoint — 2026-10-26
 
 This checkout now integrates runtime and file-type settings work from the
-user-designated DevFolder workspace. Start at
+user-designated DevFolder workspace. Start with the root
+[project status](../../PROJECT_STATUS.md) for the active checkout, PR, file locations
+and next work, then consult
 [the runtime/file-type validation report](../validation/2026-10-26-runtime-and-file-types.md)
 and [supplemental plan](plans/2026-10-26-runtime-and-file-type-settings.md).
-Finder remote-image downloads remain unresolved. The historical continuation
+Remote images are now deliberately quarantined to preserve the response-size
+contract; see [PR review and clean installation](../validation/2026-10-26-pr-review-clean-install.md). The historical continuation
 below does not supersede this checkpoint.
 
 ---

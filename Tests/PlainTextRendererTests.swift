@@ -10,10 +10,10 @@ final class PlainTextRendererTests: XCTestCase {
 
     /// Every renderer's document must carry the same meta CSP as the live
     /// policy for the same setting; plain text once fell back to images off.
-    func testMetaCSPFollowsAllowExternalImagesOnBothPlainTextPaths() {
+    func testMetaCSPQuarantinesLegacyExternalImagesOnBothPlainTextPaths() {
         let expected = PreviewWebView.contentSecurityPolicy(nonce: nonce, allowExternalImages: true)
         let blocked = PreviewWebView.contentSecurityPolicy(nonce: nonce, allowExternalImages: false)
-        XCTAssertNotEqual(expected, blocked)
+        XCTAssertEqual(expected, blocked)
         var config = AppConfig()
         config.global.allowExternalImages = true
         config.fileTypes = ["py": FileTypeConfig(syntaxHighlight: true, syntaxLanguage: "python")]
@@ -23,7 +23,7 @@ final class PlainTextRendererTests: XCTestCase {
 
         for html in [logPath, highlightPath] {
             XCTAssertTrue(html.contains("content=\"\(expected)\""))
-            XCTAssertFalse(html.contains("content=\"\(blocked)\""))
+            XCTAssertTrue(html.contains("content=\"\(blocked)\""))
         }
         config.global.allowExternalImages = false
         let off = renderer.render(content: "plain", config: config, fileExtension: "txt", nonce: nonce)
