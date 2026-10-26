@@ -6,6 +6,8 @@ struct PreviewWebViewRepresentable: NSViewRepresentable {
     let html: String
     let nonce: String
     let resourcesURL: URL?
+    let imageTimeoutSeconds: TimeInterval
+    let allowExternalImages: Bool
 
     /// Remembers what the web view is already showing.
     ///
@@ -21,7 +23,7 @@ struct PreviewWebViewRepresentable: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> PreviewWebView {
-        let webView = PreviewWebView()
+        let webView = PreviewWebView(imageTimeoutSeconds: imageTimeoutSeconds, allowExternalImages: allowExternalImages)
         loadIfNeeded(webView, context.coordinator)
         return webView
     }

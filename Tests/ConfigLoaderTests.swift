@@ -36,6 +36,25 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(loaded.global.fontSize, 18)
     }
 
+    func testSuccessfulSaveNotifiesAfterNewConfigurationIsReadable() throws {
+        let loader = ConfigLoader(containerURL: tempDir)
+        let saved = expectation(forNotification: Notification.Name("QuickLookConfigurationDidSave"), object: nil) { _ in
+            loader.load().global.fontSize == 21
+        }
+        var config = AppConfig()
+        config.global.fontSize = 21
+        try loader.save(config)
+        wait(for: [saved], timeout: 0.3)
+    }
+
+    func testFailedSaveDoesNotPublishAConfigurationChange() {
+        let loader = ConfigLoader(containerURL: tempDir.appendingPathComponent("missing"))
+        let saved = expectation(forNotification: Notification.Name("QuickLookConfigurationDidSave"), object: nil)
+        saved.isInverted = true
+        XCTAssertThrowsError(try loader.save(AppConfig()))
+        wait(for: [saved], timeout: 0.1)
+    }
+
     // MARK: - The bundled default
 
     /// What "Reset to Default" writes. `AppConfig()` is *not* that default — it

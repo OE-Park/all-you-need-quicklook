@@ -7,19 +7,36 @@ public struct GlobalConfig: Codable, Equatable, Sendable {
     public var lineHeight: Double
     public var showLineNumbers: Bool
     public var imageTimeoutSeconds: Int
+    public var allowExternalImages: Bool
 
     public init(
         fontFamily: String = "SF Mono",
         fontSize: Int = 13,
         lineHeight: Double = 1.5,
         showLineNumbers: Bool = true,
-        imageTimeoutSeconds: Int = 3
+        imageTimeoutSeconds: Int = 3,
+        allowExternalImages: Bool = false
     ) {
         self.fontFamily = fontFamily
         self.fontSize = fontSize
         self.lineHeight = lineHeight
         self.showLineNumbers = showLineNumbers
         self.imageTimeoutSeconds = imageTimeoutSeconds
+        self.allowExternalImages = allowExternalImages
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case fontFamily, fontSize, lineHeight, showLineNumbers, imageTimeoutSeconds, allowExternalImages
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        fontFamily = try values.decode(String.self, forKey: .fontFamily)
+        fontSize = try values.decode(Int.self, forKey: .fontSize)
+        lineHeight = try values.decode(Double.self, forKey: .lineHeight)
+        showLineNumbers = try values.decode(Bool.self, forKey: .showLineNumbers)
+        imageTimeoutSeconds = try values.decode(Int.self, forKey: .imageTimeoutSeconds)
+        allowExternalImages = try values.decodeIfPresent(Bool.self, forKey: .allowExternalImages) ?? false
     }
 }
 

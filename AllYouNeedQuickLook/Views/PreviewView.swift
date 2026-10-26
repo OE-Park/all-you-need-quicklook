@@ -19,7 +19,7 @@ struct PreviewView: View {
 
     @State private var selectedSample: SampleFile?
 
-    /// The rendered document, recomputed when the selection changes.
+    /// The rendered document, recomputed on selection or successful settings save.
     ///
     /// Rendering inside `body` re-read the sample from disk, re-read
     /// `config.json` from the App Group and rebuilt the whole ~475 KB template
@@ -33,6 +33,8 @@ struct PreviewView: View {
     struct RenderedSample: Equatable {
         let html: String
         let nonce: String
+        let imageTimeoutSeconds: TimeInterval
+        let allowExternalImages: Bool
     }
 
     private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
@@ -49,8 +51,12 @@ struct PreviewView: View {
         } detail: {
             if let rendered {
                 PreviewWebViewRepresentable(
-                    html: rendered.html, nonce: rendered.nonce, resourcesURL: Self.resourcesURL
+                    html: rendered.html, nonce: rendered.nonce, resourcesURL: Self.resourcesURL,
+                    imageTimeoutSeconds: rendered.imageTimeoutSeconds,
+                    allowExternalImages: rendered.allowExternalImages
                 )
+                .id(rendered.imageTimeoutSeconds)
+                .id(rendered.allowExternalImages)
             } else {
                 ContentUnavailableView(
                     "Select a Sample File",
@@ -61,6 +67,9 @@ struct PreviewView: View {
         }
         .onChange(of: selectedSample) { _, sample in
             rendered = sample.map(Self.render)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ConfigLoader.didSave).receive(on: RunLoop.main)) { _ in
+            rendered = selectedSample.map(Self.render)
         }
     }
 
@@ -77,7 +86,9 @@ struct PreviewView: View {
             html: renderer.render(
                 content: content, config: config, fileExtension: sample.ext, nonce: nonce
             ),
-            nonce: nonce
+            nonce: nonce,
+            imageTimeoutSeconds: TimeInterval(config.global.imageTimeoutSeconds),
+            allowExternalImages: config.global.allowExternalImages
         )
     }
 

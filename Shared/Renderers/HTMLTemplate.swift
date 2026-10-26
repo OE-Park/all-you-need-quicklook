@@ -14,7 +14,8 @@ public enum HTMLTemplate {
         body: String,
         rendererType: String,
         nonce: String,
-        customCSS: String = ""
+        customCSS: String = "",
+        allowExternalImages: Bool = false
     ) -> String {
         """
         <!DOCTYPE html>
@@ -125,6 +126,7 @@ public enum HTMLTemplate {
         </script>
         <script nonce="\(nonce)">
         \(katexJS)
+        \(mathJS)
         </script>
         </head>
         <body class="\(rendererType)">
@@ -158,7 +160,15 @@ public enum HTMLTemplate {
                 } catch (error) {
                     return;
                 }
-                if (source.protocol !== 'http:' && source.protocol !== 'https:') {
+                var remote = source.protocol === 'http:' || source.protocol === 'https:';
+                if (!\(allowExternalImages ? "true" : "false") && (remote || source.protocol === 'quicklook-image:')) {
+                    var blocked = document.createElement('div');
+                    blocked.className = 'placeholder-image external-image-blocked';
+                    blocked.textContent = 'External image blocked. Allow external images in Settings to load it.';
+                    image.replaceWith(blocked);
+                    return;
+                }
+                if (!remote) {
                     return;
                 }
 
@@ -199,6 +209,7 @@ public enum HTMLTemplate {
     static let markedJS = bundledJS("marked.min")
     static let highlightJS = bundledJS("highlight.min")
     static let katexJS = bundledJS("katex.min")
+    static let mathJS = bundledJS("render-math")
 
     private final class BundleToken {}
 

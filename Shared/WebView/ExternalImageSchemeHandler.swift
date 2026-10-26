@@ -11,8 +11,10 @@ final class ExternalImageLoader: @unchecked Sendable {
     private let delegate: StreamingImageSessionDelegate
     private let session: URLSession
     private let timeout: TimeInterval
+    private let allowExternalImages: Bool
 
-    init(timeout: TimeInterval, protocolClasses: [AnyClass]? = nil) {
+    init(timeout: TimeInterval, allowExternalImages: Bool = false, protocolClasses: [AnyClass]? = nil) {
+        self.allowExternalImages = allowExternalImages
         self.timeout = max(timeout, 0.1)
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = self.timeout
@@ -28,6 +30,9 @@ final class ExternalImageLoader: @unchecked Sendable {
     }
 
     func load(_ url: URL) async throws -> LoadedImage {
+        guard allowExternalImages else {
+            throw URLError(.notConnectedToInternet, userInfo: [NSLocalizedDescriptionKey: "External images are disabled in Settings."])
+        }
         guard Self.isAllowed(url) else { throw URLError(.unsupportedURL) }
 
         var request = URLRequest(url: url)
@@ -158,8 +163,8 @@ final class ExternalImageSchemeHandler: NSObject, WKURLSchemeHandler, @unchecked
     private let lock = NSLock()
     private var tasks: [ObjectIdentifier: Task<Void, Never>] = [:]
 
-    init(timeout: TimeInterval) {
-        self.loader = ExternalImageLoader(timeout: timeout)
+    init(timeout: TimeInterval, allowExternalImages: Bool) {
+        self.loader = ExternalImageLoader(timeout: timeout, allowExternalImages: allowExternalImages)
     }
 
     func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {

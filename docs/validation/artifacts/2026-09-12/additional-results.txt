@@ -1,0 +1,3 @@
+highlight-font {"ready":"true","text":"font check","preFont":"Courier, monospace","codeFont":"\"SF Mono\", SFMono-Regular, Menlo, Consolas, monospace","html":"<code id=\"code-content\" class=\"language-plaintext\">font check</code>"}
+pattern-on-entities {"ready":"true","text":"a &lt; b &amp; c","preFont":"\"SF Mono\", monospace","codeFont":null,"html":"a <span class=\"log-error\">&amp;</span>lt; b <span class=\"log-error\">&amp;</span>amp; c"}
+pattern-on-generated-markup {"ready":"true","text":"ERROR","preFont":"\"SF Mono\", monospace","codeFont":null,"html":"<span class=\"log-warn\"><span class=\"log-error\">ERROR</span></span>"}

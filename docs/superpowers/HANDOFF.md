@@ -1,7 +1,20 @@
 # Render-time features — continuation handoff
 
-Updated: 2026-09-07. This is the current continuation checkpoint, not a claim that
-the render-time feature set is complete.
+Updated: 2026-09-12. The current checkpoint is the verified bug-fix work on
+`fix/bug-review-20260912`; see the [fix validation report](../validation/2026-09-12-bug-fixes.md)
+for implementation, test evidence, Finder/host checks, behavior changes and local state.
+
+The plain-text renderer now uses the existing bounded compiler/matcher through
+JavaScriptCore. It is not a Markdown/notebook DOM pattern-highlighting pass.
+Saved host settings and per-document extension image transport are refreshed;
+external images default to blocked with an explicit Settings opt-in. Script
+boundaries, Markdown math/source preservation and syntax font/gutter bugs are repaired.
+Future render-time features remain separate work; the old continuation prompt
+below must not overwrite this checkpoint or restart completed fixes.
+
+## Historical handoff — 2026-09-07
+
+The remainder records the previous implementation state, not current source behavior.
 
 ## Start here
 

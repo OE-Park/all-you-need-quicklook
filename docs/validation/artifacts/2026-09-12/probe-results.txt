@@ -1,0 +1,11 @@
+PROBE control: {"ready":"true","state":"complete","url":"file:///tmp/aynql-review-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3304,"result":"Control"}
+PROBE markdown-script-comment: {"ready":null,"state":"complete","url":"file:///tmp/aynql-review-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3324,"result":{"heading":null,"text":null}}
+PROBE plaintext-script-comment: {"ready":null,"state":"complete","url":"file:///tmp/aynql-review-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":2021,"result":null}
+PROBE highlighted-line-numbers: {"ready":"true","state":"complete","url":"file:///tmp/aynql-review-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":1997,"result":{"text":"first\nsecond","lines":0}}
+PROBE markdown-math-in-code: {"ready":"true","state":"complete","url":"file:///tmp/aynql-review-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3484,"result":{"text":"echo 'HOMEHOMEHOME'\n","mathInsideCode":0}}
+PROBE notebook-markdown-escaping: {"ready":"true","state":"complete","url":"file:///tmp/aynql-review-20260912/Build/Products/Debug/Shared.framework/Resources/","bodyLength":3212,"result":{"code":"a &lt; b &amp; c","rawHTMLBold":0,"text":"a &lt; b &amp; c\n<b>bold</b>\n"}}
+PERF errors=4000 bytes=24000 seconds=0.008061051368713379 htmlBytes=625187
+PERF errors=8000 bytes=48000 seconds=0.023336052894592285 htmlBytes=773187
+PERF errors=16000 bytes=96000 seconds=0.08304893970489502 htmlBytes=1069187
+PERF errors=32000 bytes=192000 seconds=0.34626197814941406 htmlBytes=1661187
+PERF errors=64000 bytes=384000 seconds=1.3519760370254517 htmlBytes=2845187

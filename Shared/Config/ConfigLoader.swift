@@ -2,6 +2,7 @@
 import Foundation
 
 public final class ConfigLoader: Sendable {
+    public static let didSave = Notification.Name("QuickLookConfigurationDidSave")
     private let containerURL: URL
     private let configFileName = "config.json"
 
@@ -37,6 +38,7 @@ public final class ConfigLoader: Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(config)
         try data.write(to: configFileURL, options: .atomic)
+        NotificationCenter.default.post(name: Self.didSave, object: nil)
     }
 
     /// The shipped default configuration — `Shared/Resources/default-config.json`.

@@ -37,11 +37,11 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
 Continuation starts at [HANDOFF.md](docs/superpowers/HANDOFF.md), which records
 the current checkpoint, next task, verification scope and cross-service prompt.
 
-Current scope: bounded pattern compiler and metered matcher, bundled as static
-resources and tested through JavaScriptCore. They are not connected to preview
-rendering or Settings. The [handoff](docs/superpowers/HANDOFF.md) is the authority
-for current validation, pending DOM/UI integration and the next task. Avoid
-copying checkpoint hashes or test counts here; they become stale.
+The bounded pattern compiler and metered matcher are now used by plain-text log
+rendering through JavaScriptCore. Markdown/notebook DOM pattern highlighting and
+Settings pattern validation remain future work. The [handoff](docs/superpowers/HANDOFF.md)
+links the authority for current implementation and validation. Avoid copying
+checkpoint hashes or test counts here; they become stale.
 
 The host UI integration preserves main's timeout-controlled image proxy,
 private bundled fonts, and escaping fixes alongside explicit nonce plumbing.
