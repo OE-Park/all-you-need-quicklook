@@ -15,6 +15,8 @@ struct PreviewView: View {
         SampleFile(id: "txt", name: "sample.txt", ext: "txt"),
         SampleFile(id: "log", name: "sample.log", ext: "log"),
         SampleFile(id: "ipynb", name: "sample.ipynb", ext: "ipynb"),
+        SampleFile(id: "json", name: "sample.json", ext: "json"),
+        SampleFile(id: "yaml", name: "sample.yaml", ext: "yaml"),
     ]
 
     @State private var selectedSample: SampleFile?
@@ -110,6 +112,7 @@ struct PreviewView: View {
         case "txt": return "doc.text"
         case "log": return "terminal"
         case "ipynb": return "tablecells"
+        case "json", "yaml": return "curlybraces"
         default: return "doc"
         }
     }

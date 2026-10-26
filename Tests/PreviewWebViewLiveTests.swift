@@ -372,7 +372,196 @@ final class PreviewWebViewLiveTests: XCTestCase {
                        "a previous load's nonce was still accepted")
     }
 
+    // MARK: - Rendered formatting
+
+    /// The template's `* { margin: 0; padding: 0 }` strips every block margin,
+    /// and marked emits nothing but semantic HTML. Without rules of its own a
+    /// markdown document rendered with headings, paragraphs and lists flush
+    /// against one another and list markers flush with the text. Computed
+    /// style in a real WKWebView is the only thing that proves it is fixed --
+    /// the CSS being present in the source does not.
+    func testMarkdownBlocksHaveSpacingInTheLoadedDocument() throws {
+        let web = loadMarkdown("# Heading\n\nParagraph.\n\n- one\n- two\n\n> quoted\n\n---\n\nEnd.")
+        try waitForMarkdown(in: web)
+
+        for selector in ["#markdown-content p", "#markdown-content ul", "#markdown-content blockquote"] {
+            let top = try pixels("getComputedStyle(document.querySelector('\(selector)')).marginTop", in: web)
+            XCTAssertGreaterThan(top, 0, "\(selector) has no top margin")
+        }
+
+        let indent = try pixels(
+            "getComputedStyle(document.querySelector('#markdown-content ul')).paddingLeft", in: web
+        )
+        XCTAssertGreaterThan(indent, 20, "list markers are not indented")
+
+        let headingGap = try pixels(
+            "getComputedStyle(document.querySelector('#markdown-content h1')).marginBottom", in: web
+        )
+        XCTAssertGreaterThan(headingGap, 0, "heading runs into the paragraph below it")
+    }
+
+    /// A fenced block must be one box. `hljs.highlightElement` adds the `hljs`
+    /// class, whose theme rules give the inner `code` a second background and
+    /// a second 1em of padding inside a `pre` that already has both.
+    func testFencedCodeIsNotNestedInASecondBox() throws {
+        let web = loadMarkdown("```json\n{\"a\": 1}\n```")
+        try waitForMarkdown(in: web)
+
+        let background = try evaluateString(
+            "getComputedStyle(document.querySelector('#markdown-content pre code')).backgroundColor", in: web
+        )
+        XCTAssertTrue(
+            background.contains("rgba(0, 0, 0, 0)") || background == "transparent",
+            "fenced code kept its own background: \(background)"
+        )
+        let padding = try pixels(
+            "getComputedStyle(document.querySelector('#markdown-content pre code')).paddingTop", in: web
+        )
+        XCTAssertEqual(padding, 0, accuracy: 0.01, "fenced code is padded twice")
+    }
+
+    /// A fence in a language the bundled `common` build does not carry.
+    /// highlight.js only warns to the console and leaves the block bare, so
+    /// the renderer falls back to detection and marks what it could not do.
+    func testUnsupportedFenceLanguageFallsBackAndIsMarked() throws {
+        let web = loadMarkdown("```dockerfile\nFROM alpine\n```")
+        try waitForMarkdown(in: web)
+
+        XCTAssertEqual(
+            try evaluateString(
+                "document.querySelector('#markdown-content pre code').getAttribute('data-unhighlighted-language')",
+                in: web
+            ),
+            "dockerfile",
+            "the block was left unmarked"
+        )
+        XCTAssertGreaterThan(
+            Int(try evaluateString(
+                "document.querySelectorAll('#markdown-content pre code [class^=\"hljs-\"]').length", in: web
+            )) ?? 0,
+            0,
+            "detection fallback produced no tokens at all"
+        )
+    }
+
+    /// A fence in a language it does carry must use that grammar and stay
+    /// unmarked.
+    func testSupportedFenceLanguageIsHighlightedWithItsOwnGrammar() throws {
+        let web = loadMarkdown("```json\n{\"name\": \"demo\", \"ok\": true}\n```")
+        try waitForMarkdown(in: web)
+
+        XCTAssertEqual(
+            try evaluateString(
+                "document.querySelector('#markdown-content pre code').getAttribute('data-unhighlighted-language')",
+                in: web
+            ),
+            "null",
+            "a supported language was marked as unhighlightable"
+        )
+        XCTAssertEqual(
+            try evaluateString("document.querySelectorAll('#markdown-content .hljs-attr').length", in: web),
+            "2",
+            "json keys were not tokenised"
+        )
+    }
+
+    /// The defect as reported: a .json file added in Settings stores a bare
+    /// `FileTypeConfig()`, and before the extension drove the language lookup
+    /// that rendered as uncoloured plain text.
+    func testJSONAddedInSettingsHighlightsInTheLoadedDocument() throws {
+        var config = AppConfig()
+        config.fileTypes = ["json": FileTypeConfig()]
+        let web = loadComposed { nonce in
+            PlainTextRenderer().render(
+                content: "{\n  \"name\": \"demo\",\n  \"ok\": true\n}",
+                config: config, fileExtension: "json", nonce: nonce
+            )
+        }
+        try waitForReady(in: web)
+
+        XCTAssertEqual(
+            try evaluateString("document.querySelectorAll('#code-content .hljs-attr').length", in: web),
+            "2",
+            "json keys were not tokenised"
+        )
+        XCTAssertNotEqual(
+            try evaluateString("getComputedStyle(document.querySelector('.hljs-attr')).color", in: web),
+            try evaluateString("getComputedStyle(document.body).color", in: web),
+            "tokens carry no colour of their own"
+        )
+    }
+
+    func testYAMLHighlightsWithNoConfigurationAtAll() throws {
+        let web = loadComposed { nonce in
+            PlainTextRenderer().render(
+                content: "name: demo\nlist:\n  - one\nflag: true",
+                config: AppConfig(), fileExtension: "yaml", nonce: nonce
+            )
+        }
+        try waitForReady(in: web)
+        XCTAssertGreaterThan(
+            Int(try evaluateString("document.querySelectorAll('#code-content [class^=\"hljs-\"]').length", in: web)) ?? 0,
+            0,
+            "yaml was not highlighted"
+        )
+    }
+
+    /// The syntax branch fires whenever a language resolves, so log files
+    /// picking one up would lose every configured level pattern.
+    func testLogKeepsItsLevelPatternsInTheLoadedDocument() throws {
+        let web = loadComposed { nonce in
+            PlainTextRenderer().render(
+                content: "[2024-01-01] ERROR boom\n[2024-01-01] INFO fine",
+                config: ConfigLoader.bundledDefault(), fileExtension: "log", nonce: nonce
+            )
+        }
+        try waitForReady(in: web)
+        XCTAssertEqual(
+            try evaluateString("document.querySelectorAll('.log-error').length", in: web), "1"
+        )
+        XCTAssertEqual(
+            try evaluateString("String(document.getElementById('code-content') === null)", in: web), "true",
+            "log was diverted onto the syntax path"
+        )
+    }
+
     // MARK: - Helpers
+
+
+    /// `DOMContentLoaded` has fired by the time navigation finishes, but the
+    /// template's own handler is what sets this flag, and the renderers'
+    /// handlers run in the same turn.
+    private func waitForReady(in web: PreviewWebView) throws {
+        XCTAssertEqual(
+            try evaluateString("document.documentElement.dataset.quicklookReady", in: web), "true",
+            "the document never finished its DOMContentLoaded work"
+        )
+    }
+
+    /// Markdown is parsed into the container by script, so nothing can be
+    /// measured until the container has children.
+    private func waitForMarkdown(in web: PreviewWebView) throws {
+        try waitForReady(in: web)
+        XCTAssertGreaterThan(
+            Int(try evaluateString("document.getElementById('markdown-content').children.length", in: web)) ?? 0,
+            0,
+            "marked produced no elements"
+        )
+    }
+
+    /// Computed lengths come back as "13.5px"; compare them as numbers.
+    private func pixels(
+        _ expression: String,
+        in web: PreviewWebView,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> Double {
+        let raw = try evaluateString(expression, in: web, file: file, line: line)
+        return try XCTUnwrap(
+            Double(raw.replacingOccurrences(of: "px", with: "")),
+            "not a length: \(raw)", file: file, line: line
+        )
+    }
 
     private func loadMarkdown(_ markdown: String) -> PreviewWebView {
         loadComposed { nonce in

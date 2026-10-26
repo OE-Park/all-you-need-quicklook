@@ -35,6 +35,9 @@
 				<string>com.apple.log</string>
 				<string>net.daringfireball.markdown</string>
 				<string>org.jupyter.notebook</string>
+				<string>public.json</string>
+				<string>public.yaml</string>
+				<string>public.toml</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
@@ -60,6 +63,43 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>ipynb</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Go Source</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.golang.go-script</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>go</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Rust Source</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.rust-lang.rust-script</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>rs</string>
 				</array>
 			</dict>
 		</dict>

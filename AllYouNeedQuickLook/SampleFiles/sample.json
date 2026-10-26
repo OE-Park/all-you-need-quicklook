@@ -1,0 +1,17 @@
+{
+  "name": "all-you-need-quicklook",
+  "version": "1.0.0",
+  "enabled": true,
+  "retries": 3,
+  "timeout": 1.5,
+  "tags": ["quicklook", "preview", "macos"],
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "tls": null
+  },
+  "features": {
+    "syntaxHighlight": true,
+    "lineNumbers": true
+  }
+}

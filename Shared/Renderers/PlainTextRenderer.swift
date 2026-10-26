@@ -13,7 +13,7 @@ public final class PlainTextRenderer: Renderer {
 
         let customCSS = """
         pre.plaintext-content {
-            font-family: "\(escapeCSSString(resolved.fontFamily))", monospace;
+            font-family: "\(CSSStringEscaper.escape(resolved.fontFamily))", monospace;
             font-size: \(resolved.fontSize)px;
             line-height: \(resolved.lineHeight);
         }
@@ -22,7 +22,7 @@ public final class PlainTextRenderer: Renderer {
         .numbered-text .plaintext-content { flex: 1; min-width: 0; }
         pre.line-number-gutter {
             order: -1; flex-shrink: 0; padding-right: 0; user-select: none;
-            font-family: "\(escapeCSSString(resolved.fontFamily))", monospace;
+            font-family: "\(CSSStringEscaper.escape(resolved.fontFamily))", monospace;
             font-size: \(resolved.fontSize)px; line-height: \(resolved.lineHeight);
         }
         """
@@ -92,14 +92,5 @@ public final class PlainTextRenderer: Renderer {
             if scalar == "\n" { lines += 1 }
         }
         return (String(scalars), "")
-    }
-
-    private func escapeCSSString(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "<", with: "\\3C ")
-            .replacingOccurrences(of: "\n", with: "\\A ")
-            .replacingOccurrences(of: "\r", with: "\\D ")
     }
 }

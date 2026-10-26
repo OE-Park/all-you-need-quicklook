@@ -39,6 +39,7 @@ public enum HTMLTemplate {
             --info-text: #1976d2;
             --debug-text: #7b7b7b;
             --line-number: #999999;
+            --muted: #57606a;
         }
         @media (prefers-color-scheme: dark) {
             :root {
@@ -55,6 +56,7 @@ public enum HTMLTemplate {
                 --info-text: #64b5f6;
                 --debug-text: #9e9e9e;
                 --line-number: #666666;
+                --muted: #9198a1;
             }
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -98,10 +100,64 @@ public enum HTMLTemplate {
         .cell-error { background: var(--error-bg); }
         .cell-execution-count { font-size: 11px; color: var(--line-number); padding: 4px 16px 0; }
         .markdown-cell { padding: 16px; }
+
+        /* The `*` reset above strips every block margin, and nothing else puts
+           them back. marked emits plain semantic HTML, so without these rules
+           headings, paragraphs and lists render flush against one another and
+           list markers sit outside the content box. Both markdown surfaces --
+           a standalone .md document (.markdown) and a notebook markdown cell
+           (.markdown-cell) -- are listed together so the two cannot drift. */
+        .markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5, .markdown h6,
         .markdown-cell h1, .markdown-cell h2, .markdown-cell h3,
-        .markdown-cell h4, .markdown-cell h5, .markdown-cell h6 { margin-top: 1em; margin-bottom: 0.5em; }
-        .markdown-cell p { margin: 0.5em 0; }
-        .markdown-cell ul, .markdown-cell ol { padding-left: 2em; }
+        .markdown-cell h4, .markdown-cell h5, .markdown-cell h6 {
+            margin-top: 1.5em; margin-bottom: 0.5em; line-height: 1.25;
+        }
+        .markdown > :first-child, .markdown-cell > :first-child { margin-top: 0; }
+        .markdown h1, .markdown h2, .markdown-cell h1, .markdown-cell h2 {
+            padding-bottom: 0.3em; border-bottom: 1px solid var(--border);
+        }
+        .markdown p, .markdown-cell p { margin: 0.8em 0; }
+        .markdown ul, .markdown ol, .markdown-cell ul, .markdown-cell ol {
+            padding-left: 2em; margin: 0.8em 0;
+        }
+        .markdown li, .markdown-cell li { margin: 0.25em 0; }
+        .markdown li > ul, .markdown li > ol,
+        .markdown-cell li > ul, .markdown-cell li > ol { margin: 0.25em 0; }
+        /* --muted, not --line-number: a blockquote is body text, and the
+           gutter grey is deliberately faint enough to fail contrast for it. */
+        .markdown blockquote, .markdown-cell blockquote {
+            margin: 1em 0; padding: 0 1em;
+            border-left: 4px solid var(--border); color: var(--muted);
+        }
+        .markdown pre, .markdown-cell pre { margin: 1em 0; }
+        /* hljs.highlightElement adds `hljs` to the `code`, and the theme gives
+           that class its own background and `pre code.hljs` its own 1em
+           padding -- inside a `pre` that already has both. Left alone a fenced
+           block renders as a box within a box in a second colour. Only the
+           container styling is dropped; the token colours are separate
+           selectors and stay. */
+        .markdown pre code.hljs, .markdown-cell pre code.hljs {
+            background: transparent; padding: 0;
+        }
+        .markdown hr, .markdown-cell hr {
+            margin: 1.5em 0; border: 0; height: 1px; background: var(--border);
+        }
+        /* `code` outside a `pre` is inline: give it a chip, but leave fenced
+           blocks to the `pre` rule so they are not double-padded. */
+        .markdown :not(pre) > code, .markdown-cell :not(pre) > code {
+            background: var(--code-bg); border-radius: 4px;
+            padding: 0.2em 0.4em; font-size: 0.9em;
+        }
+        .markdown img, .markdown-cell img { margin: 0.5em 0; }
+
+        /* A fence whose language the bundled highlight.js does not carry.
+           hljs only warns to the console and leaves the block bare, so the
+           renderer marks it and the label says why it has no colour. */
+        [data-unhighlighted-language]::before {
+            content: "no highlighter for “" attr(data-unhighlighted-language) "”";
+            display: block; margin-bottom: 8px;
+            font-size: 11px; color: var(--muted);
+        }
         .placeholder-image {
             background: var(--code-bg); border: 1px dashed var(--border);
             border-radius: 4px; padding: 20px; text-align: center;

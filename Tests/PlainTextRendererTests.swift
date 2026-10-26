@@ -107,4 +107,47 @@ final class PlainTextRendererTests: XCTestCase {
         XCTAssertFalse(html.contains("</script><script nonce="))
         XCTAssertTrue(html.contains("<\\/script>"))
     }
+
+    // MARK: - Data formats added via Settings
+
+    /// The reported defect: a .json file added in Settings stored a bare
+    /// `FileTypeConfig()` and rendered as uncoloured plain text.
+    func testJSONHighlightsWithNoExplicitConfiguration() {
+        var config = AppConfig()
+        config.fileTypes = ["json": FileTypeConfig()]
+        let html = renderer.render(content: "{\"a\": 1}", config: config, fileExtension: "json", nonce: nonce)
+        XCTAssertTrue(html.contains("id=\"code-content\""), "did not take the syntax path")
+        XCTAssertTrue(html.contains("language-json"))
+        XCTAssertTrue(html.contains("hljs.getLanguage('json')"))
+    }
+
+    func testYAMLHighlightsForBothExtensions() {
+        for ext in ["yaml", "yml"] {
+            let html = renderer.render(content: "a: 1", config: AppConfig(), fileExtension: ext, nonce: nonce)
+            XCTAssertTrue(html.contains("language-yaml"), "\(ext) did not resolve to yaml")
+        }
+    }
+
+    /// highlight.js has no TOML grammar; `toml` is its own alias for `ini`.
+    func testTOMLHighlightsAsINI() {
+        let html = renderer.render(content: "a = 1", config: AppConfig(), fileExtension: "toml", nonce: nonce)
+        XCTAssertTrue(html.contains("language-ini"))
+    }
+
+    /// The syntax branch fires whenever a language resolves, so a log file
+    /// picking one up would lose every configured level pattern. It must not.
+    func testLogStillTakesThePatternPathUnderTheBundledDefaults() {
+        let config = ConfigLoader.bundledDefault()
+        let html = renderer.render(
+            content: "[2024-01-01] ERROR boom", config: config, fileExtension: "log", nonce: nonce
+        )
+        XCTAssertTrue(html.contains("log-error"), "log level patterns were dropped")
+        XCTAssertFalse(html.contains("id=\"code-content\""), "log was diverted onto the syntax path")
+    }
+
+    func testUnmappedExtensionStaysPlain() {
+        let html = renderer.render(content: "FROM alpine", config: AppConfig(), fileExtension: "dockerfile", nonce: nonce)
+        XCTAssertFalse(html.contains("id=\"code-content\""))
+        XCTAssertTrue(html.contains("FROM alpine"))
+    }
 }

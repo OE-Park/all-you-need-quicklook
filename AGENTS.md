@@ -32,6 +32,71 @@ xcodebuild -project AllYouNeedQuickLook.xcodeproj -scheme AllYouNeedQuickLook -d
   DOM assertions, visual checks and Finder checks separately, including pending
   manual checks. Do not mark verification complete while a required check remains.
 
+## Installing for a Finder check
+
+Every build location that is *launched* registers its own Quick Look
+extension, and the record outlives the directory. A worktree built under
+`/private/tmp` leaves a ghost in System Settings long after the directory is
+gone, and with several of them there is no way to tell which copy Finder
+actually invoked — the duplicate rows are indistinguishable.
+
+So a Finder check is run against one installed copy at a known path, never
+against a build product in place:
+
+```bash
+scripts/install-to-applications.sh [--reset-config] [--keep-derived-data]
+```
+
+It quits the running copy, builds Release, unregisters **every** recorded
+path (ghosts included), installs to `/Applications`, verifies the signature,
+prints the appex's `QLSupportedContentTypes`, removes the built copies from
+DerivedData and restarts `quicklookd`. `--reset-config` deletes the App Group
+`config.json`, which is the reset: `ConfigLoader.load()` falls back to the
+bundled `default-config.json` while no file exists.
+
+Launching the app once afterwards is still manual — the system only offers
+the extension after that — as is enabling it in System Settings.
+
+Do not report a Finder result without saying which copy produced it.
+
+## Preview verification corpus
+
+Any change to a renderer, to `HTMLTemplate`, to the escaping helpers, to
+`SyntaxLanguageMap` or to `QLSupportedContentTypes` is verified against the
+corpus, not against ad-hoc samples invented for the occasion.
+
+```bash
+python3 scripts/make-preview-corpus.py          # -> ~/Desktop/AYNQL-test
+python3 scripts/make-preview-corpus.py <dir>    # or somewhere else
+```
+
+The destination is wiped and rebuilt. Read `000-CHECKLIST.md` in it first: it
+states what each directory proves and what the correct outcome looks like,
+including the cases where the correct outcome is *no* preview from this
+extension.
+
+The corpus is generated rather than committed. The generator is the authority
+on why each file exists, so add cases there rather than dropping files into
+the destination — anything added by hand is lost on the next run. New escaping
+hazards, new size bounds and newly claimed content types each earn a case.
+
+What it covers, and what each directory is for:
+
+| Directory | Proves |
+|---|---|
+| `01-newly-routed` | `public.json` / `public.yaml` / `public.toml` reach the extension at all |
+| `02-markdown` | block spacing, fence highlighting, the unsupported-language label |
+| `03-special-chars` | `HTMLEscaper`, both `ScriptEscaping` forms, `CSSStringEscaper`, the ISO-8859-1 fallback, line endings |
+| `04-size-limits` | `boundedPreview` on both bounds, either side of each |
+| `05-regression` | log level patterns, plain `.txt`, notebooks |
+| `06-source-code` | extension-driven language resolution |
+| `07-not-claimed` | types deliberately left to the system preview |
+| `08-malformed` | graceful failure |
+
+Rendering it is not the same as checking it. The corpus only pays for itself
+when previewed with Space in Finder, in **both** appearances — several cases
+(blockquote contrast, theme switching) are invisible in one of them.
+
 ## Status
 
 Continuation starts at [HANDOFF.md](docs/superpowers/HANDOFF.md), which records
