@@ -30,7 +30,9 @@ public final class PlainTextRenderer: Renderer {
         if resolved.syntaxHighlight, let language = resolved.syntaxLanguage {
             return renderWithSyntaxHighlight(
                 content: content, language: language,
-                resolved: resolved, customCSS: customCSS, nonce: nonce, notice: preview.notice
+                resolved: resolved, customCSS: customCSS, nonce: nonce, notice: preview.notice,
+                allowExternalImages: config.global.allowExternalImages,
+                imageTimeoutSeconds: config.global.imageTimeoutSeconds
             )
         }
 
@@ -44,15 +46,21 @@ public final class PlainTextRenderer: Renderer {
             return escapedLine
         }
 
+        let allowExternalImages = config.global.allowExternalImages
+        let imageTimeoutSeconds = config.global.imageTimeoutSeconds
         let skipped = highlighter?.skipped == true
             ? "<div class=\"placeholder-image highlight-skipped\">Some log highlighting was skipped because a pattern is unsupported or the preview limit was reached.</div>" : ""
         let body = "<pre class=\"plaintext-content\">\(processedLines.joined(separator: "\n"))</pre>\(skipped)\(preview.notice)"
-        return HTMLTemplate.wrap(body: body, rendererType: "plaintext", nonce: nonce, customCSS: customCSS)
+        return HTMLTemplate.wrap(
+            body: body, rendererType: "plaintext", nonce: nonce, customCSS: customCSS,
+            allowExternalImages: allowExternalImages, imageTimeoutSeconds: imageTimeoutSeconds
+        )
     }
 
     private func renderWithSyntaxHighlight(
         content: String, language: String,
-        resolved: ResolvedFileTypeConfig, customCSS: String, nonce: String, notice: String
+        resolved: ResolvedFileTypeConfig, customCSS: String, nonce: String, notice: String,
+        allowExternalImages: Bool, imageTimeoutSeconds: Int
     ) -> String {
         let escaped = ScriptEscaping.forTemplateLiteral(content)
         let escapedLanguage = ScriptEscaping.forSingleQuotedLiteral(language)
@@ -76,7 +84,10 @@ public final class PlainTextRenderer: Renderer {
         });
         </script>
         """
-        return HTMLTemplate.wrap(body: body, rendererType: "plaintext", nonce: nonce, customCSS: customCSS)
+        return HTMLTemplate.wrap(
+            body: body, rendererType: "plaintext", nonce: nonce, customCSS: customCSS,
+            allowExternalImages: allowExternalImages, imageTimeoutSeconds: imageTimeoutSeconds
+        )
     }
 
     private func boundedPreview(_ content: String) -> (text: String, notice: String) {

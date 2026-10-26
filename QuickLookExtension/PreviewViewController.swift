@@ -40,7 +40,8 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         }
 
         let fileExtension = url.pathExtension.lowercased()
-        let config = configLoader.load()
+        let configResult = configLoader.loadResult()
+        let config = configResult.config
 
         let renderer: Renderer = switch fileExtension {
         case "md", "markdown":
@@ -55,9 +56,11 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         // the renderer stamps it on the `<script>` elements it emits, and the
         // web view arms `script-src 'nonce-…'` with the same value.
         let nonce = PreviewWebView.makeNonce()
-        let html = renderer.render(
+        let document = renderer.render(
             content: content, config: config, fileExtension: fileExtension, nonce: nonce
         )
+
+        let html = PreviewBuildIdentity.annotate(document, identifier: Bundle.main.bundleIdentifier)
 
         let resourcesURL = Bundle(for: PreviewWebView.self).resourceURL
             ?? Bundle(for: Self.self).resourceURL
@@ -67,7 +70,11 @@ class PreviewViewController: NSViewController, QLPreviewingController {
             // A reused QuickLook controller must not retain the previous
             // document's network consent, timeout or in-flight requests.
             replaceWebView(config: config)
-            webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
+            webView.loadHTML(
+                html, resourcesURL: resourcesURL, nonce: nonce,
+                notice: configResult.isUnreadable ? PreviewWebView.unreadableSettingsNotice : nil,
+                documentDirectory: url.deletingLastPathComponent()
+            )
         }
     }
 }

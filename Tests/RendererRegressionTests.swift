@@ -53,8 +53,8 @@ final class RendererRegressionTests: XCTestCase {
         XCTAssertEqual(notices, "0")
     }
 
-    func testDefaultImagePolicyShowsNoticeForRemoteAndDirectProxyImages() async throws {
-        let source = "<img src='https://example.test/x.png'><img src='quicklook-image://fetch/?url=http%3A%2F%2F127.0.0.1%2Fx'>"
+    func testDefaultImagePolicyShowsNoticeForRemoteImages() async throws {
+        let source = "<img src='https://example.test/x.png'><img src='http://127.0.0.1/x.png'>"
         let web = try await load(MarkdownRenderer(), source, ext: "md")
         let count = try await string("document.querySelectorAll('.external-image-blocked').length", in: web)
         XCTAssertEqual(count, "2")

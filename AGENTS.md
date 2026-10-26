@@ -50,8 +50,8 @@ scripts/install-to-applications.sh [--reset-config] [--keep-derived-data]
 It quits the running copy, builds Release, unregisters **every** recorded
 path (ghosts included), installs to `/Applications`, verifies the signature,
 prints the appex's `QLSupportedContentTypes`, removes the built copies from
-DerivedData and restarts `quicklookd`. `--reset-config` deletes the App Group
-`config.json`, which is the reset: `ConfigLoader.load()` falls back to the
+DerivedData and restarts `quicklookd`. `--reset-config` deletes
+`~/Library/Application Support/AllYouNeedQuickLook/config.json`, which is the reset: `ConfigLoader.load()` falls back to the
 bundled `default-config.json` while no file exists.
 
 Launching the app once afterwards is still manual — the system only offers
@@ -92,6 +92,7 @@ What it covers, and what each directory is for:
 | `06-source-code` | extension-driven language resolution |
 | `07-not-claimed` | types deliberately left to the system preview |
 | `08-malformed` | graceful failure |
+| `11-sandbox-realities` | relative images (including `../`, `%20`, SVG and a refused fake), remote images off/on, Plotly figures, pandas HTML, HTML-only Plotly |
 
 Rendering it is not the same as checking it. The corpus only pays for itself
 when previewed with Space in Finder, in **both** appearances — several cases
@@ -108,8 +109,9 @@ Settings pattern validation remain future work. The [handoff](docs/superpowers/H
 links the authority for current implementation and validation. Avoid copying
 checkpoint hashes or test counts here; they become stale.
 
-The host UI integration preserves main's timeout-controlled image proxy,
-private bundled fonts, and escaping fixes alongside explicit nonce plumbing.
+The host UI integration keeps remote images in WebKit (CSP `img-src` plus the
+Settings switch, timeout in the template's image script; no Swift image
+transport), private bundled fonts, and escaping fixes alongside explicit nonce plumbing.
 Finder Space checks for .md/.ipynb/.log passed on the host integration build;
 its running extension path was verified and prior registrations restored.
 
@@ -135,8 +137,9 @@ Task 17 step 3's sub-item 4, the dark-mode toggle, remains the owner's to run.
 PlugInKit ignores an unsigned bundle, so `scripts/adhoc-sign.sh` runs as a
 post-build phase and ad-hoc signs the framework, then the appex (with its
 entitlements), then the app. Do not try to move this back into Xcode's own
-signing: the App Group entitlement makes the build system demand a provisioning
-profile, which `codesign` itself does not. Note also that every launched build
+signing. The App Group is gone (a `group.` identifier under ad-hoc signing makes
+macOS prompt on every preview; settings now live in Application Support), but
+re-enabling Xcode signing is out of scope. Note also that every launched build
 location registers its own copy, so the System Settings list accumulates
 duplicates; clear them with `lsregister -u <path>`.
 
@@ -163,8 +166,37 @@ CodeQL's build failed while the same build passed locally.
   legacy plan snippets are not authority to weaken it.
 - Read the original plan's Security Note before changing a renderer or CSP.
 - Every app-controlled `<script>` must carry the same fresh document nonce passed
-  to `PreviewWebView.loadHTML(_:resourcesURL:nonce:)`. Keep bundled JS/CSS inlined;
+  to `PreviewWebView.loadHTML(_:resourcesURL:nonce:notice:documentDirectory:)`. Keep bundled JS/CSS inlined;
   do not restore external resource tags or widen CSP to make them load.
 - Copilot cloud agent cannot run Xcode. CI on `macos-26` is the compiler.
 
 Web Copilot details: `.github/copilot-instructions.md`.
+
+
+## User-designated checkout and isolated testing
+
+# QuickLook project instructions
+
+Work in this user-designated DevFolder checkout. A second DevTools checkout of
+the same repository is separate state. Confirm branch, HEAD and dirty files.
+
+- Generate the ignored Xcode project from `project.yml` with XcodeGen.
+- Run the Tests scheme on macOS and build the host/embedded extension.
+- Preserve per-document nonces, inline vendored JS/CSS, CSP and navigation policy.
+- Only app-controlled scripts receive the document nonce.
+- Settings changes formatting, not the bundled `QLSupportedContentTypes` list.
+  System Settings enables extensions; it cannot dynamically register file types.
+- Before UI testing, inspect existing test copies. New test apps use
+  `AllYouNeedQuickLook-<random alphanumeric>.app`; isolate bundle identifiers and
+  settings paths too. `script/build_and_run.sh --build-only` implements this.
+- Old test copies may be removed after checking their exact paths and closing
+  them. Never reset production settings or unregister unrelated installed apps.
+- Use the user's shared samples under `~/Projects/TEST_SAMPLES/all-you-need-quicklook`.
+- Separate compilation, unit/string assertions, live WKWebView, visual and Finder
+  results. A successful host preview does not establish Finder routing. Random
+  test builds identify themselves in Finder with `Test build <suffix>`.
+- Finder remote-image downloads failed in the current validation despite network
+  entitlements and successful host-side WKWebView tests. Preserve safe fallback;
+  do not widen CSP or sandbox privileges speculatively.
+- The latest status authority is `docs/validation/2026-10-26-runtime-and-file-types.md`.
+  Keep pending checks explicit. Projects daily-note rules still apply.

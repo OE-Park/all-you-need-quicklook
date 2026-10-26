@@ -13,7 +13,7 @@
 # Usage:
 #   scripts/install-to-applications.sh [--reset-config] [--keep-derived-data]
 #
-#   --reset-config       delete the App Group config.json so the next preview
+#   --reset-config       delete the Application Support config.json so the next preview
 #                        falls back to the bundled default
 #   --keep-derived-data  leave the built .app in DerivedData (it will register
 #                        itself again if it is ever launched)
@@ -34,7 +34,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="$REPO/AllYouNeedQuickLook.xcodeproj"
 APP_NAME="AllYouNeedQuickLook.app"
 INSTALLED="/Applications/$APP_NAME"
-GROUP_CONTAINER="$HOME/Library/Group Containers/group.com.yohanpark.AllYouNeedQuickLook"
+CONFIG_DIR="$HOME/Library/Application Support/AllYouNeedQuickLook"
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
@@ -94,8 +94,8 @@ if [ "$RESET_CONFIG" -eq 1 ]; then
     step "Resetting settings"
     # load() falls back to the bundled default-config.json while no file
     # exists, so deleting it is the reset.
-    if [ -f "$GROUP_CONTAINER/config.json" ]; then
-        rm -f "$GROUP_CONTAINER/config.json"
+    if [ -f "$CONFIG_DIR/config.json" ]; then
+        rm -f "$CONFIG_DIR/config.json"
         echo "    removed config.json"
     else
         echo "    no config.json; already at the bundled default"

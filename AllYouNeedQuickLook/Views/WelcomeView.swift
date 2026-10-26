@@ -27,7 +27,7 @@ struct WelcomeView: View {
                 // `.txt` resolves to public.plain-text, the same type macOS's own
                 // text preview declares -- and the built-in one wins. The Preview
                 // tab in this app still renders .txt with the configured settings.
-                Text("Plain .txt files keep the built-in macOS preview. Use the Preview tab to see them with your settings applied.")
+                Text("macOS may use its built-in preview for .txt when several providers qualify. Use the Preview tab to see your formatting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -40,12 +40,12 @@ struct WelcomeView: View {
                 Text("Enable the QuickLook Extension")
                     .font(.headline)
 
-                Text("System Settings > Privacy & Security > Extensions > Quick Look")
+                Text("System Settings → General → Login Items & Extensions → Quick Look")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
                 Button("Open System Settings") {
-                    openExtensionSettings()
+                    _ = ExtensionSettings.open()
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -55,9 +55,4 @@ struct WelcomeView: View {
         .padding()
     }
 
-    private func openExtensionSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.ExtensionsPreferences") {
-            NSWorkspace.shared.open(url)
-        }
-    }
 }

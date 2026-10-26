@@ -8,16 +8,19 @@ public final class NotebookRenderer: Renderer {
     public func render(content: String, config: AppConfig, fileExtension: String, nonce: String) -> String {
         guard let data = content.data(using: .utf8),
               let notebook = try? JSONDecoder().decode(Notebook.self, from: data) else {
-            return renderError("Error: Failed to parse notebook file.", nonce: nonce)
+            return renderError("Error: Failed to parse notebook file.", nonce: nonce, config: config)
         }
 
         var cellsHTML = ""
+        // Counts the Plotly figures emitted so far: it numbers their targets
+        // and, being non-zero at the end, is what pulls the library in.
+        var figures = 0
         for cell in notebook.cells {
             switch cell.cellType {
             case .markdown:
                 cellsHTML += renderMarkdownCell(cell)
             case .code:
-                cellsHTML += renderCodeCell(cell)
+                cellsHTML += renderCodeCell(cell, figures: &figures)
             case .raw:
                 cellsHTML += renderRawCell(cell)
             }
@@ -82,7 +85,7 @@ public final class NotebookRenderer: Renderer {
         </script>
         """
 
-        return HTMLTemplate.wrap(body: body, rendererType: "notebook", nonce: nonce, allowExternalImages: config.global.allowExternalImages)
+        return HTMLTemplate.wrap(body: body, rendererType: "notebook", nonce: nonce, allowExternalImages: config.global.allowExternalImages, imageTimeoutSeconds: config.global.imageTimeoutSeconds, includePlotly: figures > 0)
     }
 
     private func renderMarkdownCell(_ cell: Cell) -> String {
@@ -94,7 +97,7 @@ public final class NotebookRenderer: Renderer {
         """
     }
 
-    private func renderCodeCell(_ cell: Cell) -> String {
+    private func renderCodeCell(_ cell: Cell, figures: inout Int) -> String {
         let execLabel: String
         if let count = cell.executionCount {
             execLabel = "In [\(count)]"
@@ -111,7 +114,7 @@ public final class NotebookRenderer: Renderer {
 
         if let outputs = cell.outputs {
             for output in outputs {
-                html += renderOutput(output)
+                html += renderOutput(output, figures: &figures)
             }
         }
 
@@ -128,17 +131,17 @@ public final class NotebookRenderer: Renderer {
         """
     }
 
-    private func renderOutput(_ output: CellOutput) -> String {
+    private func renderOutput(_ output: CellOutput, figures: inout Int) -> String {
         switch output {
         case .stream(let stream):
             let text = HTMLEscaper.escape(stream.text.joined())
             return "<div class=\"cell-output\"><pre>\(text)</pre></div>"
 
         case .displayData(let display):
-            return renderMimeData(display.data)
+            return renderMimeData(display.data, figures: &figures)
 
         case .executeResult(let result):
-            return renderMimeData(result.data)
+            return renderMimeData(result.data, figures: &figures)
 
         case .error(let error):
             let traceback = error.traceback
@@ -148,8 +151,22 @@ public final class NotebookRenderer: Renderer {
         }
     }
 
-    private func renderMimeData(_ data: [String: MimeData]) -> String {
-        // Priority order: image > html > latex > text
+    private func renderMimeData(_ data: [String: MimeData], figures: inout Int) -> String {
+        // Priority order: plotly > image > html > latex > text
+        //
+        // A Plotly output carries the figure as JSON beside a `text/html`
+        // copy (a script that cannot run here) and usually a static PNG. The
+        // JSON is drawn by the bundled plotly.js; the PNG rides along hidden
+        // as the fallback for a figure that fails to draw.
+        if let figure = data["application/vnd.plotly.v1+json"]?.jsonText {
+            figures += 1
+            let fallback = data["image/png"].map {
+                "<img class=\"plotly-fallback\" hidden src=\"data:image/png;base64,\(HTMLEscaper.escape($0.text))\">"
+            } ?? ""
+            return "<div class=\"cell-output\"><div class=\"plotly-figure\" data-figure=\"\(figures)\"></div>"
+                + "<script type=\"application/json\" id=\"plotly-figure-\(figures)\">"
+                + ScriptEscaping.forJSONScriptBlock(figure) + "</script>\(fallback)</div>"
+        }
         if let png = data["image/png"] {
             return "<div class=\"cell-output\"><img src=\"data:image/png;base64,\(HTMLEscaper.escape(png.text))\"></div>"
         }
@@ -193,9 +210,13 @@ public final class NotebookRenderer: Renderer {
             + "which this preview does not run.</div>"
     }
 
-    private func renderError(_ message: String, nonce: String) -> String {
+    private func renderError(_ message: String, nonce: String, config: AppConfig) -> String {
         let body = "<div class=\"cell-output cell-error\"><pre>\(HTMLEscaper.escape(message))</pre></div>"
-        return HTMLTemplate.wrap(body: body, rendererType: "notebook", nonce: nonce)
+        return HTMLTemplate.wrap(
+            body: body, rendererType: "notebook", nonce: nonce,
+            allowExternalImages: config.global.allowExternalImages,
+            imageTimeoutSeconds: config.global.imageTimeoutSeconds
+        )
     }
 
 }

@@ -62,7 +62,7 @@ public enum SyntaxLanguageMap {
         table[fileExtension.lowercased()]
     }
 
-    /// Every language id the table can return. Test-facing: it is what
+    /// Every distinct language id the table can return, sorted. Test-facing: it is what
     /// `SyntaxLanguageMapTests` checks against the shipped bundle.
-    public static var allLanguages: [String] { Array(table.values) }
+    public static var allLanguages: [String] { Array(Set(table.values)).sorted() }
 }

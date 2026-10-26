@@ -6,23 +6,37 @@ public enum HTMLTemplate {
     /// Composes a complete preview document.
     ///
     /// `nonce` must be the same `PreviewWebView.makeNonce()` value that is
-    /// passed to `PreviewWebView.loadHTML(_:resourcesURL:nonce:)` for this
+    /// passed to `PreviewWebView.loadHTML(_:resourcesURL:nonce:notice:documentDirectory:)` for this
     /// document. `script-src` names that nonce and nothing else, so an
-    /// unstamped or mismatched `<script>` — including every one of the three
-    /// bundled libraries below — simply does not run.
+    /// unstamped or mismatched `<script>` — including every one of the
+    /// bundled libraries below (marked, highlight.js, KaTeX, and plotly.js when
+    /// `includePlotly` is set) — simply does not run.
     public static func wrap(
         body: String,
         rendererType: String,
         nonce: String,
         customCSS: String = "",
-        allowExternalImages: Bool = false
+        allowExternalImages: Bool = false,
+        imageTimeoutSeconds: Int = 3,
+        includePlotly: Bool = false
     ) -> String {
-        """
+        // The 4.5 MB library goes only into documents that have a figure. Both
+        // blocks sit in the body ahead of the template's own readiness script,
+        // so a figure is drawn before `quicklookReady` is set.
+        let plotlyScripts = includePlotly ? """
+        <script nonce="\(nonce)">
+        \(plotlyJS)
+        </script>
+        <script nonce="\(nonce)">
+        \(plotlyFigureInit)
+        </script>
+        """ : ""
+        return """
         <!DOCTYPE html>
         <html lang="en">
         <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="\(PreviewWebView.contentSecurityPolicy(nonce: nonce))">
+        <meta http-equiv="Content-Security-Policy" content="\(PreviewWebView.contentSecurityPolicy(nonce: nonce, allowExternalImages: allowExternalImages))">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
         :root {
@@ -121,6 +135,10 @@ public enum HTMLTemplate {
             padding-left: 2em; margin: 0.8em 0;
         }
         .markdown li, .markdown-cell li { margin: 0.25em 0; }
+        .settings-notice {
+            margin: 0 0 12px; padding: 6px 10px; font-size: 12px;
+            color: var(--muted); border: 1px solid var(--border); border-radius: 6px;
+        }
         .markdown li > ul, .markdown li > ol,
         .markdown-cell li > ul, .markdown-cell li > ol { margin: 0.25em 0; }
         /* --muted, not --line-number: a blockquote is body text, and the
@@ -187,6 +205,7 @@ public enum HTMLTemplate {
         </head>
         <body class="\(rendererType)">
         \(body)
+        \(plotlyScripts)
         <script nonce="\(nonce)">
         document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('click', function(event) {
@@ -210,14 +229,40 @@ public enum HTMLTemplate {
             });
 
             document.querySelectorAll('img[src]').forEach(function(image) {
+                var raw = (image.getAttribute('src') || '').trim();
+                if (raw === '') {
+                    return;
+                }
+
+                var unavailable = function() {
+                    if (!image.isConnected) {
+                        return;
+                    }
+                    image.removeAttribute('src');
+                    var placeholder = document.createElement('div');
+                    placeholder.className = 'placeholder-image';
+                    placeholder.textContent = 'Image unavailable';
+                    image.replaceWith(placeholder);
+                };
+
+                // A reference with no scheme and no leading slash names a file
+                // beside the document. The page's base URL is the bundle, not
+                // the document, so the attribute is handed over as written
+                // and the app resolves it.
+                if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) && raw.charAt(0) !== '/') {
+                    image.addEventListener('error', unavailable, { once: true });
+                    image.src = 'quicklook-local://image/?ref=' + encodeURIComponent(raw);
+                    return;
+                }
+
                 var source;
                 try {
-                    source = new URL(image.getAttribute('src'), document.baseURI);
+                    source = new URL(raw, document.baseURI);
                 } catch (error) {
                     return;
                 }
                 var remote = source.protocol === 'http:' || source.protocol === 'https:';
-                if (!\(allowExternalImages ? "true" : "false") && (remote || source.protocol === 'quicklook-image:')) {
+                if (!\(allowExternalImages ? "true" : "false") && remote) {
                     var blocked = document.createElement('div');
                     blocked.className = 'placeholder-image external-image-blocked';
                     blocked.textContent = 'External image blocked. Allow external images in Settings to load it.';
@@ -228,13 +273,15 @@ public enum HTMLTemplate {
                     return;
                 }
 
-                image.addEventListener('error', function() {
-                    var placeholder = document.createElement('div');
-                    placeholder.className = 'placeholder-image';
-                    placeholder.textContent = 'Image unavailable';
-                    image.replaceWith(placeholder);
-                }, { once: true });
-                image.src = 'quicklook-image://fetch/?url=' + encodeURIComponent(source.href);
+                // WebKit loads the remote image itself. A host that never
+                // answers fires no `error`, so a timer swaps in the same
+                // placeholder if nothing has decoded by then.
+                image.addEventListener('error', unavailable, { once: true });
+                setTimeout(function() {
+                    if (!image.complete || image.naturalWidth === 0) {
+                        unavailable();
+                    }
+                }, \(imageTimeoutSeconds) * 1000);
             });
             document.documentElement.dataset.quicklookReady = 'true';
         });
@@ -266,6 +313,42 @@ public enum HTMLTemplate {
     static let highlightJS = bundledJS("highlight.min")
     static let katexJS = bundledJS("katex.min")
     static let mathJS = bundledJS("render-math")
+    static let plotlyJS = bundledJS("plotly.min")
+
+    /// Draws every `.plotly-figure` from its JSON block. The figure is part of
+    /// the document, so it is configured to be a picture: no mode bar, no
+    /// drag or zoom. A figure that throws, or a missing `Plotly`, un-hides the
+    /// static PNG when the output had one and otherwise says so.
+    private static let plotlyFigureInit = """
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.plotly-figure').forEach(function(div) {
+            var fail = function() {
+                var fallback = div.parentNode.querySelector('.plotly-fallback');
+                if (fallback) {
+                    fallback.hidden = false;
+                    return;
+                }
+                var notice = document.createElement('div');
+                notice.className = 'placeholder-image';
+                notice.textContent = 'This Plotly figure could not be drawn.';
+                div.appendChild(notice);
+            };
+            try {
+                var source = document.getElementById('plotly-figure-' + div.getAttribute('data-figure'));
+                var fig = JSON.parse(source.textContent);
+                var drawn = Plotly.newPlot(
+                    div,
+                    fig.data || [],
+                    Object.assign({}, fig.layout, { dragmode: false }),
+                    { displayModeBar: false, scrollZoom: false, doubleClick: false, responsive: true }
+                );
+                if (drawn && drawn.catch) { drawn.catch(fail); }
+            } catch (e) {
+                fail();
+            }
+        });
+    });
+    """
 
     private final class BundleToken {}
 

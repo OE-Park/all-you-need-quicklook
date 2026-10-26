@@ -12,10 +12,13 @@ Default destination is ~/Desktop/AYNQL-test. The destination is wiped and
 rebuilt, so do not keep anything else there.
 """
 
+import base64
 import json
 import os
 import shutil
+import struct
 import sys
+import zlib
 from pathlib import Path
 
 DEST = Path(sys.argv[1] if len(sys.argv) > 1 else "~/Desktop/AYNQL-test").expanduser()
@@ -1091,6 +1094,177 @@ write("08-malformed/unclosed-fence.md", "# Unclosed fence\n\n```json\n{\"a\": 1}
 
 
 # --------------------------------------------------------------------------
+# 11 - sandbox realities: relative images, remote images, Plotly
+#
+# The relative images are real bytes on purpose: the local-image handler
+# refuses anything CGImageSource does not recognise, so placeholder text named
+# .png would prove the refusal path and nothing else. Everything stays inside
+# 11-sandbox-realities/ because the generator only wipes its destination, so
+# "one level above" the document is doc/ -> 11-sandbox-realities/up.png.
+# --------------------------------------------------------------------------
+
+def tiny_png(rgb, size=48):
+    """A valid size x size solid-colour PNG, standard library only."""
+    def chunk(kind, data):
+        body = kind + data
+        return (struct.pack(">I", len(data)) + body
+                + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF))
+    row = b"\x00" + bytes(rgb) * size
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(row * size))
+            + chunk(b"IEND", b""))
+
+
+write("11-sandbox-realities/doc/same.png", tiny_png((220, 50, 47)))
+write("11-sandbox-realities/doc/sub/in-sub.png", tiny_png((38, 139, 210)))
+write("11-sandbox-realities/doc/a b.png", tiny_png((133, 153, 0)))
+write("11-sandbox-realities/up.png", tiny_png((181, 137, 0)))
+write("11-sandbox-realities/doc/logo.svg", """\
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <circle cx="24" cy="24" r="22" fill="#6c71c4"/>
+  <path d="M14 26l7 7 13-16" fill="none" stroke="#fff" stroke-width="5"/>
+</svg>
+""")
+write("11-sandbox-realities/doc/fake.png",
+      "This is plain text named .png. It is not an image.\n")
+
+write("11-sandbox-realities/doc/relative-images.md", """\
+# Relative images
+
+Each image below is a coloured square or a logo. A broken-image icon or a
+missing square is a failure, except the last case, which must be refused.
+
+Same folder: ![same](same.png)
+
+Subfolder: ![in sub](sub/in-sub.png)
+
+Parent folder: ![up](../up.png)
+
+Space in the name, written as `%20`: ![a b](a%20b.png)
+
+SVG: ![logo](logo.svg)
+
+Query string is ignored: ![same again](same.png?v=2)
+
+Not an image (text named .png), must be refused: ![fake](fake.png)
+
+End of document.
+""")
+
+write("11-sandbox-realities/remote-image.md", """\
+# Remote image
+
+![apple favicon](https://www.apple.com/favicon.ico)
+
+Text after the image. With external images off, the image above must be
+replaced by an "External image blocked" placeholder.
+""")
+
+
+def plotly_cell(source, figures, png=None):
+    """Plotly output bundle; `png` rides along as the static fallback that
+    plotly's own notebook export stores beside the JSON."""
+    outputs = []
+    for figure in figures:
+        data = {"application/vnd.plotly.v1+json": figure,
+                "text/plain": ["Figure()"]}
+        if png is not None:
+            data["image/png"] = base64.b64encode(png).decode("ascii")
+        outputs.append({"output_type": "display_data", "metadata": {}, "data": data})
+    return {"cell_type": "code", "execution_count": 1, "metadata": {},
+            "source": source, "outputs": outputs}
+
+
+def notebook(cells):
+    return json.dumps({
+        "nbformat": 4, "nbformat_minor": 5,
+        "metadata": {"kernelspec": {"display_name": "Python 3",
+                                    "language": "python", "name": "python3"}},
+        "cells": cells,
+    }, indent=1) + "\n"
+
+
+PLAIN_FIGURE = {
+    "data": [{"type": "scatter", "mode": "lines+markers", "name": "plain arrays",
+              "x": [1, 2, 3, 4], "y": [1, 4, 9, 16]}],
+    "layout": {"title": {"text": "Figure with plain arrays"}},
+}
+TYPED_FIGURE = {
+    "data": [{"type": "scatter", "mode": "lines+markers", "name": "typed array",
+              "x": [1, 2], "y": {"dtype": "f8", "bdata": "AAAAAAAA8D8AAAAAAAAAQA=="}}],
+    "layout": {"title": {"text": "Figure with a typed-array y (1.0, 2.0)"}},
+}
+
+write("11-sandbox-realities/plotly.ipynb", notebook([
+    {"cell_type": "markdown", "metadata": {}, "source": [
+        "# Plotly figures\n", "\n",
+        "Two charts below. Hover shows values; there is no toolbar, drag or zoom."]},
+    plotly_cell(["fig = px.line(x=[1, 2, 3, 4], y=[1, 4, 9, 16])\n", "fig"],
+                [PLAIN_FIGURE]),
+    plotly_cell(["fig = go.Figure(go.Scatter(x=[1, 2], y=np.array([1.0, 2.0])))\n",
+                 "fig"],
+                [TYPED_FIGURE], png=tiny_png((108, 113, 196))),
+]))
+
+PANDAS_HTML = """\
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type { vertical-align: middle; }
+    .dataframe tbody tr th { vertical-align: top; }
+    .dataframe thead th { text-align: right; }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>name</th>
+      <th>score</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>alpha</td>
+      <td>1.5</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>beta</td>
+      <td>2.5</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+"""
+write("11-sandbox-realities/pandas-table.ipynb", notebook([
+    {"cell_type": "code", "execution_count": 1, "metadata": {},
+     "source": ["df"],
+     "outputs": [{"output_type": "execute_result", "execution_count": 1,
+                  "metadata": {},
+                  "data": {"text/html": PANDAS_HTML.splitlines(keepends=True),
+                           "text/plain": ["  name  score\n0 alpha    1.5\n1  beta    2.5"]}}]},
+]))
+
+PLOTLY_HTML_ONLY = """\
+<div>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<div id="plotly-html-only" class="plotly-graph-div" style="height:300px;width:400px;"></div>
+<script type="text/javascript">
+Plotly.newPlot("plotly-html-only", [{"type": "scatter", "x": [1, 2, 3], "y": [3, 1, 2]}], {});
+</script>
+</div>
+"""
+write("11-sandbox-realities/plotly-html-only.ipynb", notebook([
+    {"cell_type": "code", "execution_count": 1, "metadata": {},
+     "source": ["fig.show()"],
+     "outputs": [{"output_type": "display_data", "metadata": {},
+                  "data": {"text/html": PLOTLY_HTML_ONLY.splitlines(keepends=True)}}]},
+]))
+
+
+
+# --------------------------------------------------------------------------
 # The checklist
 # --------------------------------------------------------------------------
 
@@ -1222,6 +1396,20 @@ plain unhighlighted text is the correct outcome.
 
 `unknown-cell-type.ipynb` is a known limitation: an unrecognised `cell_type`
 currently fails the whole notebook rather than the one cell.
+
+## 11-sandbox-realities — local images, remote images, Plotly
+
+Check every case with external images **off** (the default), then **on**
+(Settings → toggle → Save), in light and dark appearance. Remote images are
+the only thing the toggle changes; local images and Plotly must not depend on it.
+
+| File | Expect |
+|------|--------|
+| `doc/relative-images.md` | Six images render: `same.png` (red square), `sub/in-sub.png` (blue), `../up.png` (yellow, one folder above `doc/`), `a%20b.png` (green, file is `a b.png`), `logo.svg` (purple circle with a check), and `same.png?v=2` (the red square again, query string ignored). `fake.png` (plain text named .png) is refused: the image is replaced by a placeholder reading "Image unavailable" — never an image and never its text. Same result with external images on or off. |
+| `remote-image.md` | External images **off**: an "External image blocked…" placeholder where the image would be. External images **on**: the Apple favicon appears. With no network and images on: a placeholder after the timeout, not a permanently broken icon. |
+| `plotly.ipynb` | Two charts. First: a line with four points (1, 4, 9, 16). Second: two points (1.0, 2.0) read from a typed array; its stored `image/png` fallback (a purple square) stays hidden, so no square appears. Hover shows values; no toolbar, no drag, no zoom, no double-click reset. Dark appearance keeps each figure's own colours. The first preview may take a moment (plotly.js is inlined). |
+| `pandas-table.ipynb` | A two-row table (`alpha`/`1.5`, `beta`/`2.5`) with an index column, styled like the other notebook output. No script runs. |
+| `plotly-html-only.ipynb` | No chart. The HTML output is shown (an empty chart area, about 300 px tall) and the "inline script, not run" notice follows it; nothing loads from `cdn.plot.ly`. Same on or off. |
 
 ## Reporting back
 

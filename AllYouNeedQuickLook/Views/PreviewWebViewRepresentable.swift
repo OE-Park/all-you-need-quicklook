@@ -6,6 +6,7 @@ struct PreviewWebViewRepresentable: NSViewRepresentable {
     let html: String
     let nonce: String
     let resourcesURL: URL?
+    let documentDirectory: URL?
     let imageTimeoutSeconds: TimeInterval
     let allowExternalImages: Bool
 
@@ -36,6 +37,6 @@ struct PreviewWebViewRepresentable: NSViewRepresentable {
         guard coordinator.loadedHTML != html || coordinator.loadedResourcesURL != resourcesURL else { return }
         coordinator.loadedHTML = html
         coordinator.loadedResourcesURL = resourcesURL
-        webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce)
+        webView.loadHTML(html, resourcesURL: resourcesURL, nonce: nonce, documentDirectory: documentDirectory)
     }
 }

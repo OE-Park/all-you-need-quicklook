@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import UniformTypeIdentifiers
 import XCTest
 
@@ -72,6 +73,67 @@ final class ProjectConfigurationTests: XCTestCase {
                 ".\(ext) is not imported as source code"
             )
         }
+    }
+
+    // MARK: - Entitlements
+
+    func testNoTargetUsesAnAppGroup() throws {
+        for name in ["AllYouNeedQuickLook/AllYouNeedQuickLook", "QuickLookExtension/QuickLookExtension"] {
+            let entitlements = try entitlements(at: name)
+            XCTAssertNil(entitlements["com.apple.security.application-groups"], name)
+        }
+    }
+
+    func testHostMayWriteOnlyItsConfigDirectory() throws {
+        let entitlements = try entitlements(at: "AllYouNeedQuickLook/AllYouNeedQuickLook")
+        XCTAssertEqual(
+            entitlements["com.apple.security.temporary-exception.files.home-relative-path.read-write"] as? [String],
+            ["/Library/Application Support/AllYouNeedQuickLook/"]
+        )
+        XCTAssertEqual(entitlements["com.apple.security.network.client"] as? Bool, true)
+    }
+
+    func testExtensionHasReadOnlyFileAccess() throws {
+        let entitlements = try entitlements(at: "QuickLookExtension/QuickLookExtension")
+        XCTAssertEqual(
+            entitlements["com.apple.security.temporary-exception.files.absolute-path.read-only"] as? [String],
+            ["/"]
+        )
+        XCTAssertEqual(entitlements["com.apple.security.network.client"] as? Bool, true)
+    }
+
+    /// Every slot macOS asks of an app icon is filled, each with a PNG of the
+    /// pixel size the slot declares. A missing or mis-sized slot is not a build
+    /// error: Finder and the Dock just fall back to a scaled neighbour or the
+    /// generic icon, which is easy to miss.
+    func testAppIconSetFillsEveryMacSlotAtItsPixelSize() throws {
+        let iconSet = repositoryRoot.appendingPathComponent("AllYouNeedQuickLook/Assets.xcassets/AppIcon.appiconset")
+        let contents = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: iconSet.appendingPathComponent("Contents.json"))) as? [String: Any]
+        )
+        let images = try XCTUnwrap(contents["images"] as? [[String: Any]])
+        var slots: Set<String> = []
+        for image in images {
+            let size = try XCTUnwrap(image["size"] as? String)
+            let scale = try XCTUnwrap(image["scale"] as? String)
+            let filename = try XCTUnwrap(image["filename"] as? String, "\(size)@\(scale) has no file")
+            slots.insert("\(size)@\(scale)")
+
+            let points = try XCTUnwrap(Int(size.split(separator: "x")[0]))
+            let pixels = points * (scale == "2x" ? 2 : 1)
+            let source = try XCTUnwrap(CGImageSourceCreateWithURL(iconSet.appendingPathComponent(filename) as CFURL, nil))
+            let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+            XCTAssertEqual(properties[kCGImagePropertyPixelWidth] as? Int, pixels, filename)
+            XCTAssertEqual(properties[kCGImagePropertyPixelHeight] as? Int, pixels, filename)
+        }
+        XCTAssertEqual(slots, Set(["16x16", "32x32", "128x128", "256x256", "512x512"].flatMap { ["\($0)@1x", "\($0)@2x"] }))
+    }
+
+    private func entitlements(at name: String) throws -> [String: Any] {
+        let data = try Data(contentsOf: repositoryRoot.appendingPathComponent(name + ".entitlements"))
+        return try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        )
     }
 
     private func extensionInfoPlist() throws -> [String: Any] {

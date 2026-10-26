@@ -89,7 +89,8 @@ public final class MarkdownRenderer: Renderer {
         """
         return HTMLTemplate.wrap(
             body: body, rendererType: "markdown", nonce: nonce,
-            customCSS: customCSS, allowExternalImages: config.global.allowExternalImages
+            customCSS: customCSS, allowExternalImages: config.global.allowExternalImages,
+            imageTimeoutSeconds: config.global.imageTimeoutSeconds
         )
     }
 }

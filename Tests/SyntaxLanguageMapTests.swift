@@ -65,4 +65,11 @@ final class SyntaxLanguageMapTests: XCTestCase {
             )
         }
     }
+
+    func testAllLanguagesHasNoDuplicates() {
+        XCTAssertEqual(
+            SyntaxLanguageMap.allLanguages.count,
+            Set(SyntaxLanguageMap.allLanguages).count
+        )
+    }
 }

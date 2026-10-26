@@ -53,6 +53,15 @@ enum ScriptEscaping {
         )
     }
 
+    /// Escapes serialized JSON for an inert `<script type="application/json">`
+    /// block. JSON text is never executed, so the only hazard is the HTML
+    /// tokenizer: `\u003c` replaces every `<`, which is the same character to
+    /// `JSON.parse` and can start neither `</script` nor `<!--`. Do not run
+    /// JSON through a string-literal escaper instead; that changes the data.
+    static func forJSONScriptBlock(_ json: String) -> String {
+        json.replacingOccurrences(of: "<", with: "\\u003c")
+    }
+
     /// `</script` optionally followed by whitespace, `>` or `/` — the sequences
     /// the HTML tokenizer accepts as the end of a script element.
     ///

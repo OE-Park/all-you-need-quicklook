@@ -49,22 +49,32 @@ In the recorded Finder checks, `.md`, `.ipynb` and `.log` used the extension; `.
 
 ## Conventions
 
-- Swift 6, macOS 15 deployment, App Sandbox, App Group `group.com.yohanpark.AllYouNeedQuickLook`.
+- Swift 6, macOS 15 deployment, App Sandbox. Settings live in `~/Library/Application Support/AllYouNeedQuickLook/config.json`, reached through temporary-exception entitlements; there is no App Group.
 - Renderers implement `Renderer.render(content:config:fileExtension:nonce:) -> String` and wrap via `HTMLTemplate.wrap(body:rendererType:nonce:customCSS:)`.
 - TDD as a plan writes it: failing test, implement, pass, commit that task only.
-- Do not add SwiftPM, CocoaPods, or new targets unless a plan says so. marked, highlight.js and KaTeX are vendored under `Shared/Resources/`.
+- Do not add SwiftPM, CocoaPods, or new targets unless a plan says so. marked, highlight.js, KaTeX and plotly.js 2.35.2 (MIT, `Shared/Resources/js/plotly.LICENSE.txt`; inlined only into documents that contain a Plotly figure) are vendored under `Shared/Resources/`.
 
 ## Two things that were learned the hard way — do not undo them
 
 **Bundled JS/CSS is inlined into the template on purpose.** `loadHTMLString(_:baseURL:)` gives the document an opaque origin with no read access to the `file://` baseURL, so `<script src>` and `<link rel=stylesheet>` cannot load — not with `script-src 'self'`, not with `file:`, not with `allowFileAccessFromFileURLs`, not with the CSP removed entirely. Inlining is the only form that loads. Do not "fix" the template by restoring external references, and do not widen the CSP believing it will help.
 
-**`script-src` names a per-load nonce and nothing else.** Every app-controlled `<script>` a renderer or `HTMLTemplate` emits must carry the document's nonce; scripts supplied by previewed content must never receive it. The same nonce must reach `PreviewWebView.loadHTML(_:resourcesURL:nonce:)`. An unstamped script silently does not run. The CSP meta is injected by a user script that creates `head` and attaches it to the document *before* inserting the meta — at `.atDocumentStart` there is no `head` yet, and getting this wrong means the policy never exists at all, with no error anywhere.
+**`script-src` names a per-load nonce and nothing else.** Every app-controlled `<script>` a renderer or `HTMLTemplate` emits must carry the document's nonce; scripts supplied by previewed content must never receive it. The same nonce must reach `PreviewWebView.loadHTML(_:resourcesURL:nonce:notice:documentDirectory:)`. An unstamped script silently does not run. The CSP meta is injected by a user script that creates `head` and attaches it to the document *before* inserting the meta — at `.atDocumentStart` there is no `head` yet, and getting this wrong means the policy never exists at all, with no error anywhere.
 
 ## Reviewing
 
 A green build and a green suite are not evidence that a preview renders. This project has twice shipped code that built, passed every test, passed every review, and was dead on arrival — caught only by running the real app. When reviewing, prefer findings you can state as a concrete failure, and distinguish what passing assertions establish from untested runtime behavior. Existing tests do not validate an unimplemented design.
 
 Resource integration: bundled JS/CSS stay inline with explicit document nonces.
-Remote images retain main's timeout-controlled `quicklook-image:` handler;
-bundled fonts retain `quicklook-resource://bundle`. Do not restore externally
-linked script tags or remove the image timeout while resolving future merges.
+Remote images load through WebKit, gated by CSP `img-src` and the Settings
+switch (default off); the timeout lives in the template's image script. Relative
+images go through the image-only `quicklook-local:` handler; bundled fonts use
+`quicklook-resource://bundle`. Do not reintroduce a Swift/`URLSession` image
+transport: the Quick Look extension process cannot reach the network, so CSP
+`img-src` is the gate. Do not restore externally linked script tags or remove
+the image timeout while resolving future merges.
+
+Current Finder validation is in `docs/validation/2026-10-26-runtime-and-file-types.md`.
+In that session remote images remained unavailable in the actual Finder sandbox
+even with the setting on; WebKit transport/gating tests are not evidence that
+Finder downloads succeed. Keep this unresolved status separate from the code
+path description above.

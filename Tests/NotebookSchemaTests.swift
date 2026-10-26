@@ -168,4 +168,35 @@ final class NotebookSchemaTests: XCTestCase {
             XCTAssertEqual(key.stringValue, "source")
         }
     }
+
+    /// A Plotly figure is a JSON object, not a string or string array, and
+    /// used to decode to `.string("")`: the data was silently lost.
+    func testPlotlyObjectSurvivesDecoding() throws {
+        let json = """
+        {"output_type":"display_data","metadata":{},"data":{
+          "application/vnd.plotly.v1+json":{"data":[{"y":[1,2]}],"layout":{}}}}
+        """.data(using: .utf8)!
+        guard case .displayData(let output) = try JSONDecoder().decode(CellOutput.self, from: json) else {
+            return XCTFail("expected display_data")
+        }
+        let mime = try XCTUnwrap(output.data["application/vnd.plotly.v1+json"])
+        XCTAssertEqual(mime.text, "")
+        let text = try XCTUnwrap(mime.jsonText)
+        let parsed = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+        let traces = try XCTUnwrap(parsed["data"] as? [[String: Any]])
+        XCTAssertEqual(traces[0]["y"] as? [Int], [1, 2])
+        XCTAssertNotNil(parsed["layout"] as? [String: Any])
+    }
+
+    func testObjectMimeDataRoundTrips() throws {
+        let source = #"{"a":{"b":[1,2.5,"x",null,true]}}"#
+        let mime = try JSONDecoder().decode(MimeData.self, from: Data(source.utf8))
+        let encoded = try JSONEncoder().encode(mime)
+        let again = try JSONDecoder().decode(MimeData.self, from: encoded)
+        let a = try JSONSerialization.jsonObject(with: Data(try XCTUnwrap(mime.jsonText).utf8)) as? NSDictionary
+        let b = try JSONSerialization.jsonObject(with: Data(try XCTUnwrap(again.jsonText).utf8)) as? NSDictionary
+        let original = try JSONSerialization.jsonObject(with: Data(source.utf8)) as? NSDictionary
+        XCTAssertEqual(a, original)
+        XCTAssertEqual(b, original)
+    }
 }

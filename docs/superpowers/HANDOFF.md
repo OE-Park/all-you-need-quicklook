@@ -1,3 +1,14 @@
+# Current delivery checkpoint — 2026-10-26
+
+This checkout now integrates runtime and file-type settings work from the
+user-designated DevFolder workspace. Start at
+[the runtime/file-type validation report](../validation/2026-10-26-runtime-and-file-types.md)
+and [supplemental plan](plans/2026-10-26-runtime-and-file-type-settings.md).
+Finder remote-image downloads remain unresolved. The historical continuation
+below does not supersede this checkpoint.
+
+---
+
 # Render-time features — continuation handoff
 
 Updated: 2026-09-12. The current checkpoint is the verified bug-fix work on

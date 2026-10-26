@@ -48,11 +48,40 @@ final class ConfigLoaderTests: XCTestCase {
     }
 
     func testFailedSaveDoesNotPublishAConfigurationChange() {
-        let loader = ConfigLoader(containerURL: tempDir.appendingPathComponent("missing"))
+        // A regular file where the directory should be: creating it must fail.
+        let blocker = tempDir.appendingPathComponent("blocker")
+        try? Data().write(to: blocker)
+        let loader = ConfigLoader(containerURL: blocker.appendingPathComponent("AllYouNeedQuickLook"))
         let saved = expectation(forNotification: Notification.Name("QuickLookConfigurationDidSave"), object: nil)
         saved.isInverted = true
         XCTAssertThrowsError(try loader.save(AppConfig()))
         wait(for: [saved], timeout: 0.1)
+    }
+
+    // MARK: - Location and failure reporting
+
+    func testDefaultDirectoryIsRealHomeApplicationSupport() {
+        let home = String(cString: getpwuid(getuid())!.pointee.pw_dir)
+        XCTAssertEqual(ConfigLoader.defaultDirectory.path,
+                       home + "/Library/Application Support/AllYouNeedQuickLook")
+    }
+
+    func testSaveCreatesMissingDirectory() throws {
+        let dir = tempDir.appendingPathComponent("nested/AllYouNeedQuickLook")
+        try ConfigLoader(containerURL: dir).save(AppConfig())
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("config.json").path))
+    }
+
+    func testMissingFileIsDefaultAndNotUnreadable() {
+        let r = ConfigLoader(containerURL: tempDir).loadResult()
+        XCTAssertFalse(r.isUnreadable)
+    }
+
+    func testCorruptFileIsDefaultAndUnreadable() throws {
+        try Data("{".utf8).write(to: tempDir.appendingPathComponent("config.json"))
+        let r = ConfigLoader(containerURL: tempDir).loadResult()
+        XCTAssertTrue(r.isUnreadable)
+        XCTAssertEqual(r.config, ConfigLoader.bundledDefault())
     }
 
     // MARK: - The bundled default

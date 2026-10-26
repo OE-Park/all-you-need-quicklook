@@ -175,12 +175,23 @@ public struct ErrorOutput: Codable, Sendable {
 public enum MimeData: Codable, Sendable {
     case string(String)
     case array([String])
+    /// A JSON object payload (the Plotly figure is the one that matters),
+    /// re-encoded as compact JSON text. Decoding it into text here keeps the
+    /// type `Sendable` without holding an `Any` tree.
+    case json(String)
 
     public var text: String {
         switch self {
         case .string(let s): return s
         case .array(let a): return a.joined()
+        case .json: return ""
         }
+    }
+
+    /// The compact JSON text of an object payload; nil for the text cases.
+    public var jsonText: String? {
+        if case .json(let text) = self { return text }
+        return nil
     }
 
     public init(from decoder: Decoder) throws {
@@ -189,6 +200,10 @@ public enum MimeData: Codable, Sendable {
             self = .array(arr)
         } else if let str = try? container.decode(String.self) {
             self = .string(str)
+        } else if let value = try? container.decode(JSONValue.self), case .object = value,
+                  let data = try? JSONEncoder().encode(value),
+                  let text = String(data: data, encoding: .utf8) {
+            self = .json(text)
         } else {
             self = .string("")
         }
@@ -199,6 +214,49 @@ public enum MimeData: Codable, Sendable {
         switch self {
         case .string(let s): try container.encode(s)
         case .array(let a): try container.encode(a)
+        case .json(let text):
+            let value = try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))
+            try container.encode(value)
+        }
+    }
+}
+
+/// Any JSON value, so an object-valued MIME bundle entry can be carried
+/// through `Codable` and re-encoded without loss. Internal to this file.
+private enum JSONValue: Codable {
+    case null
+    case bool(Bool)
+    case number(Double)
+    case string(String)
+    case array([JSONValue])
+    case object([String: JSONValue])
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([JSONValue].self) {
+            self = .array(value)
+        } else {
+            self = .object(try container.decode([String: JSONValue].self))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .null: try container.encodeNil()
+        case .bool(let v): try container.encode(v)
+        case .number(let v): try container.encode(v)
+        case .string(let v): try container.encode(v)
+        case .array(let v): try container.encode(v)
+        case .object(let v): try container.encode(v)
         }
     }
 }

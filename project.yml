@@ -31,6 +31,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.yohanpark.AllYouNeedQuickLook
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_CFBundleDisplayName: "All You Need QuickLook"
+        # AllYouNeedQuickLook/Assets.xcassets, generated from
+        # assets/brand/all-you-need-quicklook-v1.png fitted to the 824/1024 macOS grid.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
     entitlements:
@@ -39,8 +42,10 @@ targets:
         com.apple.security.app-sandbox: true
         # Sandboxed WKWebView needs its network process even for local HTML.
         com.apple.security.network.client: true
-        com.apple.security.application-groups:
-          - group.com.yohanpark.AllYouNeedQuickLook
+        # Settings live in ~/Library/Application Support/AllYouNeedQuickLook/;
+        # the host is the only writer.
+        com.apple.security.temporary-exception.files.home-relative-path.read-write:
+          - /Library/Application Support/AllYouNeedQuickLook/
     postBuildScripts:
       # Runs after the extension has been embedded, so it can sign the whole
       # bundle inside-out. See scripts/adhoc-sign.sh for why Xcode cannot do
@@ -130,8 +135,9 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
-        com.apple.security.application-groups:
-          - group.com.yohanpark.AllYouNeedQuickLook
+        # Reads config.json and the previewed document's neighbours.
+        com.apple.security.temporary-exception.files.absolute-path.read-only:
+          - /
 
   Shared:
     type: framework

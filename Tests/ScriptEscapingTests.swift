@@ -95,4 +95,16 @@ final class ScriptEscapingTests: XCTestCase {
         XCTAssertTrue(html.contains("<\\/script><img src=x onerror=alert(1)>"))
         XCTAssertFalse(html.contains("</script><img"))
     }
+
+    // MARK: - JSON script block
+
+    func testJSONScriptBlockNeutralizesScriptEnd() throws {
+        let input = "{\"a\":\"</script><x><!--\"}"
+        let escaped = ScriptEscaping.forJSONScriptBlock(input)
+        XCTAssertFalse(escaped.lowercased().contains("</script"))
+        XCTAssertFalse(escaped.contains("<"))
+        let data = try XCTUnwrap(escaped.data(using: .utf8))
+        let parsed = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertEqual(parsed["a"], "</script><x><!--")
+    }
 }
