@@ -24,7 +24,7 @@ struct PreviewView: View {
     /// The rendered document, recomputed on selection or successful settings save.
     ///
     /// Rendering inside `body` re-read the sample from disk, re-read
-    /// `config.json` from the App Group and rebuilt the whole ~475 KB template
+    /// `config.json` from Application Support and rebuilt the whole ~475 KB template
     /// on *every* body evaluation, handing the web view a fresh string each
     /// time. Doing it here means one render per selection.
     @State private var rendered: RenderedSample?
@@ -37,6 +37,8 @@ struct PreviewView: View {
         let nonce: String
         let imageTimeoutSeconds: TimeInterval
         let allowExternalImages: Bool
+        /// Where the sample lives; relative images in it resolve here.
+        let documentDirectory: URL?
     }
 
     private static let resourcesURL = Bundle(for: ConfigLoader.self).resourceURL
@@ -54,6 +56,7 @@ struct PreviewView: View {
             if let rendered {
                 PreviewWebViewRepresentable(
                     html: rendered.html, nonce: rendered.nonce, resourcesURL: Self.resourcesURL,
+                    documentDirectory: rendered.documentDirectory,
                     imageTimeoutSeconds: rendered.imageTimeoutSeconds,
                     allowExternalImages: rendered.allowExternalImages
                 )
@@ -90,7 +93,8 @@ struct PreviewView: View {
             ),
             nonce: nonce,
             imageTimeoutSeconds: TimeInterval(config.global.imageTimeoutSeconds),
-            allowExternalImages: config.global.allowExternalImages
+            allowExternalImages: config.global.allowExternalImages,
+            documentDirectory: Bundle.main.resourceURL
         )
     }
 
@@ -100,7 +104,7 @@ struct PreviewView: View {
                     forResource: (name as NSString).deletingPathExtension,
                     withExtension: (name as NSString).pathExtension
                 ),
-              let content = try? String(contentsOf: url, encoding: .utf8) else {
+              let content = try? SourceTextDecoder.read(from: url) else {
             return "Error: Could not load \(name)"
         }
         return content

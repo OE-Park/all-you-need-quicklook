@@ -30,8 +30,54 @@ final class PreviewWebViewLiveTests: XCTestCase {
         )
         XCTAssertFalse(contents.isEmpty, "the document loaded with no Content Security Policy at all")
         for content in contents {
-            XCTAssertEqual(content, PreviewWebView.contentSecurityPolicy(nonce: nonce))
+            XCTAssertEqual(content, PreviewWebView.contentSecurityPolicy(nonce: nonce, allowExternalImages: false))
         }
+    }
+
+    /// The template's meta and the user script's meta are two copies of one
+    /// policy; with images on they must agree too.
+    func testPolicyCopiesAgreeWhenExternalImagesAreAllowed() throws {
+        let nonce = PreviewWebView.makeNonce()
+        let html = HTMLTemplate.wrap(
+            body: "<p>x</p>", rendererType: "markdown", nonce: nonce, allowExternalImages: true
+        )
+        let web = load(
+            html, nonce: nonce,
+            into: PreviewWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 600), allowExternalImages: true)
+        )
+        let contents = try evaluateJSON(
+            """
+            Array.prototype.map.call(
+                document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]'),
+                function(m) { return m.content; }
+            )
+            """,
+            in: web
+        )
+        XCTAssertFalse(contents.isEmpty)
+        for content in contents {
+            XCTAssertEqual(content, PreviewWebView.contentSecurityPolicy(nonce: nonce, allowExternalImages: true))
+        }
+    }
+
+    // MARK: - Settings notice
+
+    func testNoticeIsShownWhenGiven() throws {
+        let web = load(
+            "<!DOCTYPE html><html><head></head><body>x</body></html>",
+            nonce: PreviewWebView.makeNonce(),
+            notice: PreviewWebView.unreadableSettingsNotice
+        )
+        XCTAssertTrue(
+            try evaluateString("document.body.textContent", in: web)
+                .contains(PreviewWebView.unreadableSettingsNotice)
+        )
+        XCTAssertEqual(try evaluateString("document.body.firstElementChild.className", in: web), "settings-notice")
+    }
+
+    func testNoNoticeByDefault() throws {
+        let web = load("<!DOCTYPE html><html><head></head><body>x</body></html>", nonce: PreviewWebView.makeNonce())
+        XCTAssertEqual(try evaluateString("document.querySelectorAll('.settings-notice').length", in: web), "0")
     }
 
     // MARK: - The policy is enforced
@@ -88,6 +134,9 @@ final class PreviewWebViewLiveTests: XCTestCase {
         let web = loadComposed { HTMLTemplate.wrap(body: "", rendererType: "markdown", nonce: $0) }
         XCTAssertEqual(try evaluateString("typeof marked", in: web), "object")
         XCTAssertEqual(try evaluateString("typeof hljs", in: web), "object")
+        for language in SyntaxLanguageMap.allLanguages {
+            XCTAssertEqual(try evaluateString("String(Boolean(hljs.getLanguage('\(language)')))", in: web), "true", language)
+        }
         XCTAssertEqual(try evaluateString("typeof katex", in: web), "object")
     }
 
@@ -303,7 +352,7 @@ final class PreviewWebViewLiveTests: XCTestCase {
              "outputs":[{"output_type":"execute_result","execution_count":1,"metadata":{},"data":{"text/html":[
                "<div>chart</div>",
                "<script>window.__notebookInlineScript = 1;<\\/script>",
-               "<img src=x onerror=\\"window.__notebookHandler = 1\\">"
+               "<img src=\\"data:,\\" onerror=\\"window.__notebookHandler = 1\\">"
              ]}}]}
             ]}
             """
@@ -424,7 +473,7 @@ final class PreviewWebViewLiveTests: XCTestCase {
     /// highlight.js only warns to the console and leaves the block bare, so
     /// the renderer falls back to detection and marks what it could not do.
     func testUnsupportedFenceLanguageFallsBackAndIsMarked() throws {
-        let web = loadMarkdown("```dockerfile\nFROM alpine\n```")
+        let web = loadMarkdown("```aynql-unknown\nFROM alpine\n```")
         try waitForMarkdown(in: web)
 
         XCTAssertEqual(
@@ -432,7 +481,7 @@ final class PreviewWebViewLiveTests: XCTestCase {
                 "document.querySelector('#markdown-content pre code').getAttribute('data-unhighlighted-language')",
                 in: web
             ),
-            "dockerfile",
+            "aynql-unknown",
             "the block was left unmarked"
         )
         XCTAssertGreaterThan(
@@ -491,6 +540,18 @@ final class PreviewWebViewLiveTests: XCTestCase {
         )
     }
 
+    func testPowerShellAndBatchHighlightUsingSupplementalGrammars() throws {
+        for (ext, text) in [("ps1", "param([string]$Name)\nWrite-Host \"Hello $Name\""),
+                            ("cmd", "@echo off\nset NAME=preview\necho %NAME%"),
+                            ("cmake", "cmake_minimum_required(VERSION 3.20)\nproject(Preview)")] {
+            let web = loadComposed { nonce in
+                PlainTextRenderer().render(content: text, config: AppConfig(), fileExtension: ext, nonce: nonce)
+            }
+            try waitForReady(in: web)
+            XCTAssertGreaterThan(Int(try evaluateString("document.querySelectorAll('#code-content [class^=\"hljs-\"]').length", in: web)) ?? 0, 0, ext)
+        }
+    }
+
     func testYAMLHighlightsWithNoConfigurationAtAll() throws {
         let web = loadComposed { nonce in
             PlainTextRenderer().render(
@@ -527,6 +588,56 @@ final class PreviewWebViewLiveTests: XCTestCase {
 
     // MARK: - Helpers
 
+
+    // MARK: - Plotly
+
+    private func plotlyNotebook(trace: String) -> String {
+        """
+        {"nbformat":4,"nbformat_minor":5,"metadata":{},"cells":[
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":1,"outputs":[
+        {"output_type":"display_data","metadata":{},"data":{"application/vnd.plotly.v1+json":
+          {"data":[\(trace)],"layout":{"title":{"text":"</script> t"}}}}}]}]}
+        """
+    }
+
+    func testPlotlyFigureDraws() throws {
+        let web = loadNotebook(plotlyNotebook(trace: #"{"type":"scatter","y":[1,2,3]}"#))
+        try waitForReady(in: web)
+        XCTAssertEqual(
+            try evaluateString("document.querySelectorAll('.plotly-figure .main-svg').length > 0", in: web),
+            "true", "plotly drew nothing"
+        )
+    }
+
+    /// Two targets, one library: both figures must draw.
+    func testTwoPlotlyFiguresBothDraw() throws {
+        let one = plotlyNotebook(trace: #"{"type":"scatter","y":[1,2]}"#)
+        // Splice a second figure cell into the same notebook.
+        let cell = #",{"cell_type":"code","metadata":{},"source":[""],"execution_count":2,"outputs":[{"output_type":"display_data","metadata":{},"data":{"application/vnd.plotly.v1+json":{"data":[{"type":"bar","y":[3,4]}],"layout":{}}}}]}]}"#
+        let web = loadNotebook(String(one.dropLast(2)) + cell)
+        try waitForReady(in: web)
+        XCTAssertEqual(
+            try evaluateString(
+                "Array.from(document.querySelectorAll('.plotly-figure')).filter(function(d){return d.querySelector('.main-svg');}).length",
+                in: web),
+            "2"
+        )
+    }
+
+    func testTypedArrayFigureDraws() throws {
+        let web = loadNotebook(plotlyNotebook(
+            trace: #"{"type":"scatter","y":{"dtype":"f8","bdata":"AAAAAAAA8D8AAAAAAAAAQA=="}}"#
+        ))
+        try waitForReady(in: web)
+        XCTAssertEqual(
+            try evaluateString("document.querySelectorAll('.plotly-figure .main-svg').length > 0", in: web),
+            "true"
+        )
+        // plotly decoded the typed array: two points in the drawn trace.
+        XCTAssertEqual(
+            try evaluateString("document.querySelector('.plotly-figure')._fullData[0].y.length", in: web), "2"
+        )
+    }
 
     /// `DOMContentLoaded` has fired by the time navigation finishes, but the
     /// template's own handler is what sets this flag, and the renderers'
@@ -589,17 +700,15 @@ final class PreviewWebViewLiveTests: XCTestCase {
     }
 
     @discardableResult
-    private func load(_ html: String, nonce: String) -> PreviewWebView {
-        load(html, nonce: nonce, into: PreviewWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 600)))
-    }
-
-    @discardableResult
-    private func load(_ html: String, nonce: String, into web: PreviewWebView) -> PreviewWebView {
+    private func load(
+        _ html: String, nonce: String, notice: String? = nil, into web: PreviewWebView? = nil
+    ) -> PreviewWebView {
+        let web = web ?? PreviewWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let finished = expectation(description: "navigation finished")
         let delegate = LoadDelegate { finished.fulfill() }
         loadDelegates.append(delegate)
         web.navigationDelegate = delegate
-        web.loadHTML(html, resourcesURL: nil, nonce: nonce)
+        web.loadHTML(html, resourcesURL: nil, nonce: nonce, notice: notice)
         wait(for: [finished], timeout: 60)
         return web
     }

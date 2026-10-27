@@ -1,11 +1,15 @@
 // AllYouNeedQuickLook/Views/SettingsView.swift
 import SwiftUI
 import Shared
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @State private var config: AppConfig
     @State private var newExtension = ""
     @State private var saveError: String?
+    @State private var statusMessage: String?
+    @State private var showingImport = false
+    private let support = FileTypeSupport.bundled()
     private let loader = ConfigLoader()
 
     init() {
@@ -25,38 +29,45 @@ struct SettingsView: View {
                         .monospacedDigit()
                 }
                 Toggle("Show Line Numbers", isOn: $config.global.showLineNumbers)
-                Toggle("Allow External Images", isOn: $config.global.allowExternalImages)
-                Text("External images can contact internet or local network servers and reveal when a file is previewed.")
+                Toggle("Allow External Images", isOn: .constant(false))
+                    .disabled(true)
+                Text("Remote images are unavailable in this version. Embedded and local images still work.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Stepper("Image Timeout: \(config.global.imageTimeoutSeconds)s",
                         value: $config.global.imageTimeoutSeconds, in: 1...30)
+                    .disabled(true)
             }
 
-            Section("File Type Settings") {
+            Section("File Formatting") {
+                Text("Quick Look is turned on or off only in macOS System Settings. This app changes formatting preferences; adding an extension below does not enable a preview provider.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Button("Manage Quick Look in System Settings") {
+                    if !ExtensionSettings.open() { saveError = ExtensionSettings.instructions }
+                }
+                Text(ExtensionSettings.instructions).font(.caption).foregroundStyle(.secondary)
+                if let statusMessage { Text(statusMessage).font(.callout).accessibilityIdentifier("fileTypeStatus") }
+
                 ForEach(sortedFileTypes, id: \.key) { entry in
                     DisclosureGroup(entry.key) {
+                        Text(supportDescription(for: entry.key))
+                            .font(.caption).foregroundStyle(.secondary)
                         fileTypeEditor(for: entry.key)
                     }
                 }
 
                 HStack {
-                    TextField("Add extension (e.g. yaml)", text: $newExtension)
+                    TextField("Add formatting override (e.g. ps1)", text: $newExtension)
                         .textFieldStyle(.roundedBorder)
                     Button("Add") {
-                        let ext = newExtension.trimmingCharacters(in: .whitespaces).lowercased()
-                        guard !ext.isEmpty else { return }
-                        if config.fileTypes == nil { config.fileTypes = [:] }
-                        // Assigning unconditionally would overwrite an existing
-                        // entry — typing "log" would wipe its level patterns.
-                        guard config.fileTypes?[ext] == nil else {
+                        do {
+                            config = try loader.saveAddedFileType(newExtension, draft: config)
+                            let ext = FileTypeSupport.normalizedExtension(newExtension)!
+                            statusMessage = ".\(ext) saved. Other draft edits still require Save. " + supportDescription(for: ext)
                             newExtension = ""
-                            return
-                        }
-                        config.fileTypes?[ext] = FileTypeConfig()
-                        newExtension = ""
+                        } catch { saveError = error.localizedDescription }
                     }
-                    .disabled(newExtension.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(FileTypeSupport.normalizedExtension(newExtension) == nil)
                 }
             }
 
@@ -69,6 +80,7 @@ struct SettingsView: View {
                         config = ConfigLoader.bundledDefault()
                         save()
                     }
+                    Button("Import Settings JSON…") { showingImport = true }
                     Spacer()
                     Button("Save") { save() }
                         .buttonStyle(.borderedProminent)
@@ -77,6 +89,18 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .fileImporter(isPresented: $showingImport, allowedContentTypes: [.json]) { result in
+            do {
+                let url = try result.get()
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                try loader.importConfiguration(from: url)
+                config = loader.load()
+                statusMessage = "Settings imported. Reopen the Finder preview to apply them."
+            } catch {
+                if (error as NSError).code != NSUserCancelledError { saveError = error.localizedDescription }
+            }
+        }
         .alert(
             "Could not save settings",
             isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })
@@ -84,6 +108,17 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(saveError ?? "")
+        }
+    }
+
+    private func supportDescription(for ext: String) -> String {
+        switch support.status(for: ext) {
+        case .eligible:
+            return "Declared Finder type. Enable Quick Look in System Settings; macOS chooses the provider."
+        case .unsupported:
+            return "Formatting preference saved. This file type is not declared for Finder; System Settings cannot add it."
+        case .unknown:
+            return "Formatting preference saved. macOS has no registered type for this extension; Finder support is unavailable."
         }
     }
 
@@ -99,11 +134,11 @@ struct SettingsView: View {
         )
 
         Toggle("Syntax Highlight", isOn: Binding(
-            get: { binding.wrappedValue.syntaxHighlight ?? false },
+            get: { config.resolvedConfig(for: ext).syntaxHighlight },
             set: { binding.wrappedValue.syntaxHighlight = $0 }
         ))
 
-        if binding.wrappedValue.syntaxHighlight == true {
+        if config.resolvedConfig(for: ext).syntaxHighlight {
             TextField("Language (e.g. xml, yaml)", text: Binding(
                 get: { binding.wrappedValue.syntaxLanguage ?? "" },
                 set: { binding.wrappedValue.syntaxLanguage = $0.isEmpty ? nil : $0 }
@@ -126,11 +161,11 @@ struct SettingsView: View {
 
     /// The only persistence path in the app, Reset included. Swallowing the
     /// error here would show a Save that appears to have worked while the
-    /// extension goes on reading the old file — or, if the App Group container
-    /// is unavailable, a file in a temporary directory that it never reads.
+    /// extension goes on reading the old file.
     private func save() {
         do {
             try loader.save(config)
+            statusMessage = "Settings saved. Reopen the Finder preview to apply them."
         } catch {
             saveError = error.localizedDescription
         }

@@ -167,4 +167,86 @@ final class NotebookRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(".markdown-cell pre code"))
         XCTAssertFalse(html.contains("highlight: function"))
     }
+
+    // MARK: - Plotly
+
+    private let plotlyKey = "application/vnd.plotly.v1+json"
+    private let plotlyMarker = "plotly.js v2.35.2"
+
+    private func plotlyOutput(_ extra: String = "") -> String {
+        """
+        {"output_type":"display_data","metadata":{},"data":{"\(plotlyKey)":{"data":[{"y":[1,2]}],"layout":{"title":"t"}}\(extra)}}
+        """
+    }
+
+    private func codeCell(outputs: [String]) -> String {
+        """
+        {"cell_type":"code","metadata":{},"source":[""],"execution_count":1,"outputs":[\(outputs.joined(separator: ","))]}
+        """
+    }
+
+    func testPlotlyTakesPriorityOverHTMLAndPNG() {
+        let json = makeNotebookJSON(cells: codeCell(outputs: [plotlyOutput(
+            #","text/html":["<b>fallback-html</b>"],"image/png":"iVBORw0KGgo=""#
+        )]))
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb", nonce: nonce)
+        XCTAssertTrue(html.contains("class=\"plotly-figure\""))
+        XCTAssertFalse(html.contains("<b>fallback-html</b>"))
+        // The PNG is kept only as a hidden fallback, never as a visible image.
+        XCTAssertTrue(html.contains("class=\"plotly-fallback\" hidden"))
+        XCTAssertEqual(html.components(separatedBy: "data:image/png;base64,iVBORw0KGgo=").count - 1, 1)
+        XCTAssertTrue(html.contains("<script type=\"application/json\" id=\"plotly-figure-1\">"))
+    }
+
+    func testPlotlyLibraryOnlyWhenFigurePresent() {
+        let plain = makeNotebookJSON(cells: codeCell(outputs: [
+            #"{"output_type":"stream","name":"stdout","text":["hi"]}"#
+        ]))
+        let without = renderer.render(content: plain, config: config, fileExtension: "ipynb", nonce: nonce)
+        XCTAssertFalse(without.contains(plotlyMarker))
+
+        let withFigure = renderer.render(
+            content: makeNotebookJSON(cells: codeCell(outputs: [plotlyOutput()])),
+            config: config, fileExtension: "ipynb", nonce: nonce
+        )
+        XCTAssertEqual(withFigure.components(separatedBy: plotlyMarker).count - 1, 1)
+    }
+
+    /// Review Focus 3.
+    func testTwoFiguresIncludeLibraryOnce() {
+        let json = makeNotebookJSON(cells: codeCell(outputs: [plotlyOutput(), plotlyOutput()]))
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb", nonce: nonce)
+        XCTAssertEqual(html.components(separatedBy: "class=\"plotly-figure\"").count - 1, 2)
+        XCTAssertTrue(html.contains("id=\"plotly-figure-1\""))
+        XCTAssertTrue(html.contains("id=\"plotly-figure-2\""))
+        XCTAssertEqual(html.components(separatedBy: plotlyMarker).count - 1, 1)
+    }
+
+    func testRendererCanBeReusedWithoutLeakingFigureState() {
+        let withFigure = makeNotebookJSON(cells: codeCell(outputs: [plotlyOutput()]))
+        _ = renderer.render(content: withFigure, config: config, fileExtension: "ipynb", nonce: nonce)
+        let plain = makeNotebookJSON(cells: codeCell(outputs: [
+            #"{"output_type":"stream","name":"stdout","text":["hi"]}"#
+        ]))
+        let html = renderer.render(content: plain, config: config, fileExtension: "ipynb", nonce: nonce)
+        XCTAssertFalse(html.contains(plotlyMarker))
+    }
+
+    func testHTMLOnlyPlotlyKeepsNotice() {
+        let json = makeNotebookJSON(cells: codeCell(outputs: [
+            #"{"output_type":"display_data","metadata":{},"data":{"text/html":["<div id=c></div><script>Plotly.newPlot('c',[])<\/script>"]}}"#
+        ]))
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb", nonce: nonce)
+        XCTAssertTrue(html.contains("which this preview does not run"))
+        XCTAssertFalse(html.contains(plotlyMarker))
+        XCTAssertFalse(html.contains("class=\"plotly-figure\""))
+    }
+
+    func testFigureJSONCannotEndItsScriptBlock() {
+        let json = makeNotebookJSON(cells: codeCell(outputs: [
+            #"{"output_type":"display_data","metadata":{},"data":{"application/vnd.plotly.v1+json":{"data":[],"layout":{"title":"</script><img src=x onerror=alert(1)>"}}}}"#
+        ]))
+        let html = renderer.render(content: json, config: config, fileExtension: "ipynb", nonce: nonce)
+        XCTAssertFalse(html.contains("<img src=x onerror=alert(1)>"))
+    }
 }

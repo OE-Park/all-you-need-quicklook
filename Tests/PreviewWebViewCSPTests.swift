@@ -14,10 +14,10 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     private let nonce = PreviewWebView.makeNonce()
 
-    private var policy: String { PreviewWebView.contentSecurityPolicy(nonce: nonce) }
+    private var policy: String { PreviewWebView.contentSecurityPolicy(nonce: nonce, allowExternalImages: false) }
 
-    private func directive(_ name: String) throws -> [String] {
-        let policy = self.policy
+    private func directive(_ name: String, allowExternalImages: Bool = false) throws -> [String] {
+        let policy = PreviewWebView.contentSecurityPolicy(nonce: nonce, allowExternalImages: allowExternalImages)
         let clause = try XCTUnwrap(
             policy.split(separator: ";")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -140,15 +140,23 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     // MARK: - Deliberate allowances
 
-    func testPolicyKeepsExternalImagesAndDataURIFonts() throws {
-        XCTAssertEqual(try directive("img-src"), ["data:", "quicklook-image:"])
+    func testImagesOffAllowsOnlyDataAndLocal() throws {
+        XCTAssertEqual(try directive("img-src", allowExternalImages: false), ["data:", "quicklook-local:"])
+    }
+
+    func testLegacyImagesOnCannotBypassResponseLimitPolicy() throws {
+        XCTAssertEqual(try directive("img-src", allowExternalImages: true),
+                       ["data:", "quicklook-local:"])
+    }
+
+    func testPolicyKeepsDataURIFonts() throws {
         XCTAssertEqual(try directive("font-src"), ["data:", "quicklook-resource://bundle"])
     }
 
     /// Nothing but `script-src` changed when the nonce arrived.
     func testOnlyScriptSrcVariesWithTheNonce() {
-        let a = PreviewWebView.contentSecurityPolicy(nonce: "AAAA")
-        let b = PreviewWebView.contentSecurityPolicy(nonce: "BBBB")
+        let a = PreviewWebView.contentSecurityPolicy(nonce: "AAAA", allowExternalImages: false)
+        let b = PreviewWebView.contentSecurityPolicy(nonce: "BBBB", allowExternalImages: false)
         XCTAssertEqual(a.replacingOccurrences(of: "'nonce-AAAA'", with: "X"),
                        b.replacingOccurrences(of: "'nonce-BBBB'", with: "X"),
                        "the nonce is not the only part of the policy that varies")
@@ -164,11 +172,13 @@ final class PreviewWebViewCSPTests: XCTestCase {
 
     /// The policy is interpolated into a JS double-quoted string literal.
     func testPolicyIsSafeToEmbedInAJavaScriptStringLiteral() {
-        for _ in 0..<64 {
-            let policy = PreviewWebView.contentSecurityPolicy(nonce: PreviewWebView.makeNonce())
-            XCTAssertFalse(policy.contains("\""))
-            XCTAssertFalse(policy.contains("\\"))
-            XCTAssertFalse(policy.contains("\n"))
+        for allow in [false, true] {
+            for _ in 0..<32 {
+                let policy = PreviewWebView.contentSecurityPolicy(nonce: PreviewWebView.makeNonce(), allowExternalImages: allow)
+                XCTAssertFalse(policy.contains("\""))
+                XCTAssertFalse(policy.contains("\\"))
+                XCTAssertFalse(policy.contains("\n"))
+            }
         }
     }
 }

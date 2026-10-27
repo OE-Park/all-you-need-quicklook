@@ -31,22 +31,345 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.yohanpark.AllYouNeedQuickLook
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_CFBundleDisplayName: "All You Need QuickLook"
+        # AllYouNeedQuickLook/Assets.xcassets, generated from
+        # assets/brand/all-you-need-quicklook-v1.png fitted to the 824/1024 macOS grid.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
+    info:
+      path: AllYouNeedQuickLook/Info.plist
+      properties:
+        # Source declarations are shared by the host and extension.
+        # System Settings controls extension activation; these declarations control eligibility.
+        UTImportedTypeDeclarations: &sourceTypes
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.apache
+            UTTypeDescription: Apache Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["apache", "htaccess"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.armasm
+            UTTypeDescription: Armasm Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["asm", "s"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.bash
+            UTTypeDescription: Bash Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["bash", "bash_profile", "bashrc", "command", "env", "ksh", "profile", "sh", "zprofile", "zsh", "zshrc"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.c
+            UTTypeDescription: C Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["c", "h"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.clojure
+            UTTypeDescription: Clojure Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["clj", "cljc", "cljs", "edn"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.cmake
+            UTTypeDescription: Cmake Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["cmake"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.cpp
+            UTTypeDescription: Cpp Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["c++", "cc", "cpp", "cxx", "h++", "hh", "hpp", "hxx", "ino", "ipp", "tpp"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.csharp
+            UTTypeDescription: Csharp Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["cs", "csx"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.css
+            UTTypeDescription: Css Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["css"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.dart
+            UTTypeDescription: Dart Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["dart"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.diff
+            UTTypeDescription: Diff Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["diff", "patch"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.dockerfile
+            UTTypeDescription: Dockerfile Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["containerfile", "dockerfile"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.dos
+            UTTypeDescription: Dos Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["bat", "cmd"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.elixir
+            UTTypeDescription: Elixir Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["ex", "exs"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.erlang
+            UTTypeDescription: Erlang Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["erl", "hrl"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.fortran
+            UTTypeDescription: Fortran Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["f", "f03", "f08", "f90", "f95", "for"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.fsharp
+            UTTypeDescription: Fsharp Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["fs", "fsi", "fsscript", "fsx"]
+          - UTTypeIdentifier: org.golang.go-script
+            UTTypeDescription: Go Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["go"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.gradle
+            UTTypeDescription: Gradle Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["gradle"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.graphql
+            UTTypeDescription: Graphql Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["gql", "graphql"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.groovy
+            UTTypeDescription: Groovy Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["groovy", "gsh", "gvy", "gy"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.haskell
+            UTTypeDescription: Haskell Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["hs", "lhs"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.ini
+            UTTypeDescription: Ini Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["automount", "cfg", "cnf", "conf", "desktop", "editorconfig", "ini", "mount", "path", "prefs", "properties", "reg", "service", "socket", "target", "timer", "toml"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.java
+            UTTypeDescription: Java Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["java"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.javascript
+            UTTypeDescription: Javascript Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["cjs", "es6", "js", "jsm", "jsx", "mjs"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.json
+            UTTypeDescription: Json Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["json", "json5", "jsonc", "jsonl", "ndjson"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.julia
+            UTTypeDescription: Julia Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["jl"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.kotlin
+            UTTypeDescription: Kotlin Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["kt", "kts"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.latex
+            UTTypeDescription: Latex Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["cls", "dtx", "ltx", "sty", "tex"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.less
+            UTTypeDescription: Less Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["less"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.lisp
+            UTTypeDescription: Lisp Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["cl", "lisp", "lsp"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.lua
+            UTTypeDescription: Lua Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["lua"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.makefile
+            UTTypeDescription: Makefile Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["makefile", "mk"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.matlab
+            UTTypeDescription: Matlab Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["matlab"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.nginx
+            UTTypeDescription: Nginx Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["nginx"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.nim
+            UTTypeDescription: Nim Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["nim", "nims"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.nix
+            UTTypeDescription: Nix Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["nix"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.objectivec
+            UTTypeDescription: Objectivec Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["m", "mm"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.ocaml
+            UTTypeDescription: Ocaml Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["ml", "mli"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.perl
+            UTTypeDescription: Perl Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["pl", "pm"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.php
+            UTTypeDescription: Php Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["php", "php3", "php4", "php5", "phps", "phtml"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.plaintext
+            UTTypeDescription: Plaintext Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["abap", "ada", "adb", "ads", "ahk", "asmdef", "asmref", "au3", "awk", "cbl", "cob", "cr", "cu", "cuh", "d", "e", "eex", "elm", "fish", "frag", "gd", "geom", "glsl", "hcl", "heex", "hppin", "inc", "leex", "metal", "move", "pas", "pde", "pp", "prg", "purs", "rkt", "sed", "sol", "tcl", "tf", "tfvars", "tk", "vala", "vapi", "vbe", "vbs", "vert", "wgsl", "zig", "zon"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.powershell
+            UTTypeDescription: Powershell Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["ps1", "psd1", "psm1", "psrc", "pssc"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.prolog
+            UTTypeDescription: Prolog Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["pro", "prolog"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.protobuf
+            UTTypeDescription: Protobuf Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["proto"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.python
+            UTTypeDescription: Python Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["pxd", "pxi", "py", "pyi", "pyw", "pyx"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.r
+            UTTypeDescription: R Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["r"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.ruby
+            UTTypeDescription: Ruby Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["gemfile", "gemspec", "podspec", "rake", "rb", "ru"]
+          - UTTypeIdentifier: org.rust-lang.rust-script
+            UTTypeDescription: Rust Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["rs"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.scala
+            UTTypeDescription: Scala Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["sc", "scala"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.scheme
+            UTTypeDescription: Scheme Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["scm", "sld", "ss"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.scss
+            UTTypeDescription: Scss Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["sass", "scss"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.sql
+            UTTypeDescription: Sql Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["ddl", "dml", "sql"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.swift
+            UTTypeDescription: Swift Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["swift"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.typescript
+            UTTypeDescription: Typescript Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["cts", "mts", "tsx"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.vbnet
+            UTTypeDescription: Vbnet Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["vb"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.verilog
+            UTTypeDescription: Verilog Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["sv", "svh", "v", "vh"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.vhdl
+            UTTypeDescription: Vhdl Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["vhd", "vhdl"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.wasm
+            UTTypeDescription: Wasm Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["wat"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.xml
+            UTTypeDescription: Xml Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["astro", "atom", "axaml", "csproj", "fsproj", "htm", "html", "plist", "pom", "props", "rdf", "resx", "rss", "svelte", "svg", "targets", "vbproj", "vue", "wsdl", "xaml", "xhtml", "xlf", "xliff", "ps1xml", "xml", "xsd", "xsl", "xslt"]
+          - UTTypeIdentifier: com.yohanpark.all-you-need-quicklook.source.yaml
+            UTTypeDescription: Yaml Source / Script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: ["yaml", "yml"]
     entitlements:
       path: AllYouNeedQuickLook/AllYouNeedQuickLook.entitlements
       properties:
         com.apple.security.app-sandbox: true
         # Sandboxed WKWebView needs its network process even for local HTML.
         com.apple.security.network.client: true
-        com.apple.security.application-groups:
-          - group.com.yohanpark.AllYouNeedQuickLook
+        # Explicit JSON import grants access only to a user-selected file.
+        com.apple.security.files.user-selected.read-only: true
+        # Settings live in ~/Library/Application Support/AllYouNeedQuickLook/;
+        # the host is the only writer.
+        com.apple.security.temporary-exception.files.home-relative-path.read-write:
+          - /Library/Application Support/AllYouNeedQuickLook/
     postBuildScripts:
       # Runs after the extension has been embedded, so it can sign the whole
       # bundle inside-out. See scripts/adhoc-sign.sh for why Xcode cannot do
       # this itself.
       - script: "\"$SRCROOT/scripts/adhoc-sign.sh\""
         name: Ad-hoc sign bundle
+        # Signing must wait until the custom host Info.plist has been processed.
+        # Otherwise codesign can succeed with Info.plist=not bound, and sandbox
+        # startup then aborts because the signature has no bundle identifier.
+        inputFiles:
+          - "$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"
         basedOnDependencyAnalysis: false
 
   QuickLookExtension:
@@ -78,22 +401,127 @@ targets:
               - com.apple.log
               - net.daringfireball.markdown
               - org.jupyter.notebook
-              # public.json / public.yaml / public.toml hang off public.text
-              # directly -- they do NOT conform to public.plain-text -- so
-              # without naming each one quicklookd never considers this
-              # extension for a .json, .yaml/.yml, .toml or .cfg file and logs
-              # nothing at all. Verified with UTType on macOS 26.
-              #
-              # Source code the system types (.swift, .py, .js, .sh ...) needs
-              # no entry: it reaches public.plain-text through
-              # public.source-code. .go and .rs are not system types; see
-              # UTImportedTypeDeclarations below.
-              # Deliberately absent: public.xml and .csv-style delimited text
-              # are left to the system preview, and .ts resolves to
-              # public.mpeg-2-transport-stream, a movie type.
+              # Explicit source/script ancestors and concrete text formats.
+              # Never claim public.data or the MPEG transport stream type for .ts.
+              - public.source-code
+              - public.script
+              - public.xml
+              - public.html
+              - public.css
               - public.json
               - public.yaml
               - public.toml
+              # Existing system/editor source types also need concrete eligibility.
+              - com.apple.metal
+              - com.apple.rez-source
+              - com.apple.terminal.shell-script
+              - com.fishshell.script
+              - com.microsoft.ini
+              - com.microsoft.typescript
+              - com.netscape.javascript-source
+              - com.sun.java-source
+              - dev.svelte
+              - org.clojure
+              - org.iso.sql
+              - org.khronos.glsl-source
+              - org.khronos.glsl.fragment-shader
+              - org.khronos.glsl.geometry-shader
+              - org.khronos.glsl.vertex-shader
+              - org.lua
+              - org.oasis-open.xliff
+              - org.tug
+              - public.ada-source
+              - public.assembly-source
+              - public.bash-script
+              - public.c-header
+              - public.c-plus-plus-header
+              - public.c-plus-plus-source
+              - public.c-source
+              - public.fortran-90-source
+              - public.fortran-95-source
+              - public.fortran-source
+              - public.gd
+              - public.ksh-script
+              - public.make-source
+              - public.ndjson
+              - public.objective-c-plus-plus-source
+              - public.objective-c-source
+              - public.opencl-source
+              - public.pascal-source
+              - public.patch-file
+              - public.perl-script
+              - public.php-script
+              - public.protobuf-source
+              - public.python-script
+              - public.rss
+              - public.ruby-script
+              - public.shell-script
+              - public.svg-image
+              - public.swift-source
+              - public.xhtml
+              - public.zsh-script
+              # Concrete source types take precedence over generic built-in text previews.
+              - com.yohanpark.all-you-need-quicklook.source.apache
+              - com.yohanpark.all-you-need-quicklook.source.armasm
+              - com.yohanpark.all-you-need-quicklook.source.bash
+              - com.yohanpark.all-you-need-quicklook.source.c
+              - com.yohanpark.all-you-need-quicklook.source.clojure
+              - com.yohanpark.all-you-need-quicklook.source.cmake
+              - com.yohanpark.all-you-need-quicklook.source.cpp
+              - com.yohanpark.all-you-need-quicklook.source.csharp
+              - com.yohanpark.all-you-need-quicklook.source.css
+              - com.yohanpark.all-you-need-quicklook.source.dart
+              - com.yohanpark.all-you-need-quicklook.source.diff
+              - com.yohanpark.all-you-need-quicklook.source.dockerfile
+              - com.yohanpark.all-you-need-quicklook.source.dos
+              - com.yohanpark.all-you-need-quicklook.source.elixir
+              - com.yohanpark.all-you-need-quicklook.source.erlang
+              - com.yohanpark.all-you-need-quicklook.source.fortran
+              - com.yohanpark.all-you-need-quicklook.source.fsharp
+              - org.golang.go-script
+              - com.yohanpark.all-you-need-quicklook.source.gradle
+              - com.yohanpark.all-you-need-quicklook.source.graphql
+              - com.yohanpark.all-you-need-quicklook.source.groovy
+              - com.yohanpark.all-you-need-quicklook.source.haskell
+              - com.yohanpark.all-you-need-quicklook.source.ini
+              - com.yohanpark.all-you-need-quicklook.source.java
+              - com.yohanpark.all-you-need-quicklook.source.javascript
+              - com.yohanpark.all-you-need-quicklook.source.json
+              - com.yohanpark.all-you-need-quicklook.source.julia
+              - com.yohanpark.all-you-need-quicklook.source.kotlin
+              - com.yohanpark.all-you-need-quicklook.source.latex
+              - com.yohanpark.all-you-need-quicklook.source.less
+              - com.yohanpark.all-you-need-quicklook.source.lisp
+              - com.yohanpark.all-you-need-quicklook.source.lua
+              - com.yohanpark.all-you-need-quicklook.source.makefile
+              - com.yohanpark.all-you-need-quicklook.source.matlab
+              - com.yohanpark.all-you-need-quicklook.source.nginx
+              - com.yohanpark.all-you-need-quicklook.source.nim
+              - com.yohanpark.all-you-need-quicklook.source.nix
+              - com.yohanpark.all-you-need-quicklook.source.objectivec
+              - com.yohanpark.all-you-need-quicklook.source.ocaml
+              - com.yohanpark.all-you-need-quicklook.source.perl
+              - com.yohanpark.all-you-need-quicklook.source.php
+              - com.yohanpark.all-you-need-quicklook.source.plaintext
+              - com.yohanpark.all-you-need-quicklook.source.powershell
+              - com.yohanpark.all-you-need-quicklook.source.prolog
+              - com.yohanpark.all-you-need-quicklook.source.protobuf
+              - com.yohanpark.all-you-need-quicklook.source.python
+              - com.yohanpark.all-you-need-quicklook.source.r
+              - com.yohanpark.all-you-need-quicklook.source.ruby
+              - org.rust-lang.rust-script
+              - com.yohanpark.all-you-need-quicklook.source.scala
+              - com.yohanpark.all-you-need-quicklook.source.scheme
+              - com.yohanpark.all-you-need-quicklook.source.scss
+              - com.yohanpark.all-you-need-quicklook.source.sql
+              - com.yohanpark.all-you-need-quicklook.source.swift
+              - com.yohanpark.all-you-need-quicklook.source.typescript
+              - com.yohanpark.all-you-need-quicklook.source.vbnet
+              - com.yohanpark.all-you-need-quicklook.source.verilog
+              - com.yohanpark.all-you-need-quicklook.source.vhdl
+              - com.yohanpark.all-you-need-quicklook.source.wasm
+              - com.yohanpark.all-you-need-quicklook.source.xml
+              - com.yohanpark.all-you-need-quicklook.source.yaml
         UTExportedTypeDeclarations:
           - UTTypeIdentifier: org.jupyter.notebook
             UTTypeDescription: Jupyter Notebook
@@ -102,27 +530,7 @@ targets:
             UTTypeTagSpecification:
               public.filename-extension:
                 - ipynb
-        # macOS declares no type for .go or .rs. Where an editor imports one
-        # they resolve to source code; on a clean Mac they are dynamic types
-        # that conform to nothing, and quicklookd never asks this extension.
-        # Importing them gives the public.plain-text route on every Mac. The
-        # identifiers match the ones editors such as CotEditor import, so the
-        # two declarations agree wherever both exist.
-        UTImportedTypeDeclarations:
-          - UTTypeIdentifier: org.golang.go-script
-            UTTypeDescription: Go Source
-            UTTypeConformsTo:
-              - public.source-code
-            UTTypeTagSpecification:
-              public.filename-extension:
-                - go
-          - UTTypeIdentifier: org.rust-lang.rust-script
-            UTTypeDescription: Rust Source
-            UTTypeConformsTo:
-              - public.source-code
-            UTTypeTagSpecification:
-              public.filename-extension:
-                - rs
+        UTImportedTypeDeclarations: *sourceTypes
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     entitlements:
@@ -130,8 +538,9 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
-        com.apple.security.application-groups:
-          - group.com.yohanpark.AllYouNeedQuickLook
+        # Reads config.json and the previewed document's neighbours.
+        com.apple.security.temporary-exception.files.absolute-path.read-only:
+          - /
 
   Shared:
     type: framework

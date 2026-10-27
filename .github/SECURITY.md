@@ -19,7 +19,7 @@ Include:
 - reproduction steps or a minimal proof of concept
 - suggested mitigation, if known
 
-Do not include real user files, App Group data, or secrets. Use synthetic content.
+Do not include real user files, config.json contents, or secrets. Use synthetic content.
 
 The maintainer acknowledges reports within 3 business days and gives an initial assessment within 7 business days. Confirmed issues are fixed on a private branch and disclosed after a fix is available.
 
@@ -29,7 +29,7 @@ Useful reports include:
 
 - XSS via rendered Markdown, logs, or notebook HTML
 - WKWebView navigation or script injection outside bundled JS
-- App Group config tampering
+- `config.json` tampering in `~/Library/Application Support/AllYouNeedQuickLook/`
 - sandbox or entitlement bypass
 - leaked secrets in the repo or CI logs
 

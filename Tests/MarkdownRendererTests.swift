@@ -118,7 +118,7 @@ final class MarkdownRendererTests: XCTestCase {
     /// not have, leaving the block silently unstyled. The renderer has to
     /// fall back deliberately and mark what it could not highlight.
     func testHandlesFenceLanguagesTheBundleDoesNotHave() {
-        let html = renderer.render(content: "```dockerfile\nFROM alpine\n```", config: config, fileExtension: "md", nonce: nonce)
+        let html = renderer.render(content: "```aynql-unknown\nFROM alpine\n```", config: config, fileExtension: "md", nonce: nonce)
         XCTAssertTrue(html.contains("hljs.getLanguage"), "no registration check before highlighting")
         XCTAssertTrue(html.contains("highlightAuto"), "no fallback for an unregistered language")
         XCTAssertTrue(html.contains("data-unhighlighted-language"), "unhighlighted blocks are not marked")

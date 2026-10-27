@@ -14,20 +14,21 @@ struct WelcomeView: View {
             VStack(spacing: 8) {
                 Text("All You Need QuickLook")
                     .font(.largeTitle.bold())
-                Text("Preview Markdown, logs, and Jupyter Notebooks in Finder.")
+                Text("Preview source code, scripts, Markdown, logs, and notebooks in Finder.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 16) {
                 Label("Markdown (.md) — rendered with syntax highlighting and math", systemImage: "doc.richtext")
+                Label("Source & scripts — PowerShell, Bash, Python, Swift, C/C++, and more", systemImage: "chevron.left.forwardslash.chevron.right")
                 Label("Logs (.log) — configurable formatting", systemImage: "doc.text")
                 Label("Jupyter Notebooks (.ipynb) — full cell rendering", systemImage: "terminal")
 
                 // `.txt` resolves to public.plain-text, the same type macOS's own
                 // text preview declares -- and the built-in one wins. The Preview
                 // tab in this app still renders .txt with the configured settings.
-                Text("Plain .txt files keep the built-in macOS preview. Use the Preview tab to see them with your settings applied.")
+                Text("macOS may use its built-in preview for .txt when several providers qualify. Use the Preview tab to see your formatting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -37,15 +38,18 @@ struct WelcomeView: View {
             Divider().padding(.horizontal, 60)
 
             VStack(spacing: 12) {
-                Text("Enable the QuickLook Extension")
+                Text("Manage Quick Look in macOS")
                     .font(.headline)
 
-                Text("System Settings > Privacy & Security > Extensions > Quick Look")
+                Text("Turn previews on or off in System Settings. Formatting preferences in this app do not activate extensions.")
+                    .font(.caption).foregroundStyle(.secondary)
+
+                Text("System Settings → General → Login Items & Extensions → Quick Look")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
                 Button("Open System Settings") {
-                    openExtensionSettings()
+                    _ = ExtensionSettings.open()
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -55,9 +59,4 @@ struct WelcomeView: View {
         .padding()
     }
 
-    private func openExtensionSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.ExtensionsPreferences") {
-            NSWorkspace.shared.open(url)
-        }
-    }
 }

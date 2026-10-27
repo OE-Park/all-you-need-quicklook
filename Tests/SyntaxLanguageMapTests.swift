@@ -15,6 +15,16 @@ final class SyntaxLanguageMapTests: XCTestCase {
         XCTAssertEqual(SyntaxLanguageMap.language(forExtension: "toml"), "ini")
     }
 
+    func testExpandedScriptAndSourceLanguages() {
+        let expected = ["ps1": "powershell", "psm1": "powershell", "psd1": "powershell",
+                        "bat": "dos", "cmd": "dos", "cmake": "cmake", "dart": "dart",
+                        "ex": "elixir", "erl": "erlang", "fsx": "fsharp", "hs": "haskell",
+                        "jl": "julia", "f90": "fortran", "vhd": "vhdl", "proto": "protobuf"]
+        for (ext, language) in expected {
+            XCTAssertEqual(SyntaxLanguageMap.language(forExtension: ext), language, ext)
+        }
+    }
+
     func testIsCaseInsensitive() {
         XCTAssertEqual(SyntaxLanguageMap.language(forExtension: "JSON"), "json")
         XCTAssertEqual(SyntaxLanguageMap.language(forExtension: "YML"), "yaml")
@@ -45,8 +55,8 @@ final class SyntaxLanguageMapTests: XCTestCase {
     }
 
     func testReturnsNilForUnknownExtension() {
-        XCTAssertNil(SyntaxLanguageMap.language(forExtension: "dockerfile"))
-        XCTAssertNil(SyntaxLanguageMap.language(forExtension: "tf"))
+        XCTAssertEqual(SyntaxLanguageMap.language(forExtension: "dockerfile"), "dockerfile")
+        XCTAssertEqual(SyntaxLanguageMap.language(forExtension: "tf"), "plaintext")
         XCTAssertNil(SyntaxLanguageMap.language(forExtension: "zzz"))
     }
 
@@ -60,9 +70,16 @@ final class SyntaxLanguageMapTests: XCTestCase {
         let source = try String(contentsOf: url, encoding: .utf8)
         for language in Set(SyntaxLanguageMap.allLanguages) {
             XCTAssertTrue(
-                source.contains("grmr_\(language.replacingOccurrences(of: "-", with: "_")):"),
+                source.contains("grmr_\(language.replacingOccurrences(of: "-", with: "_")):") || source.contains("hljs.registerLanguage(\"\(language)\""),
                 "highlight.js does not register '\(language)'"
             )
         }
+    }
+
+    func testAllLanguagesHasNoDuplicates() {
+        XCTAssertEqual(
+            SyntaxLanguageMap.allLanguages.count,
+            Set(SyntaxLanguageMap.allLanguages).count
+        )
     }
 }

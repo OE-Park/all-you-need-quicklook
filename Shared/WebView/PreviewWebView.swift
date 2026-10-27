@@ -16,9 +16,13 @@ public final class PreviewWebView: WKWebView {
     /// (`A-Za-z0-9+/=`) sits inside CSP's `base64-value` grammar *and* inside
     /// what both an HTML attribute value and a JavaScript double-quoted string
     /// literal accept unescaped — so the value can be interpolated into
-    /// `contentSecurityPolicy(nonce:)`, into `cspUserScriptSource(nonce:)`'s JS
+    /// `contentSecurityPolicy(nonce:allowExternalImages:)`, into `cspUserScriptSource(nonce:allowExternalImages:)`'s JS
     /// string and into `HTMLTemplate.wrap`'s `<script nonce="…">` with no
     /// escaping step that could later be forgotten.
+    /// Network images stay quarantined until a transport can enforce the
+    /// original 25 MiB response limit. Legacy opt-in values cannot bypass CSP.
+    public nonisolated static let remoteImagesAvailable = false
+
     public nonisolated static func makeNonce() -> String {
         var bytes = [UInt8](repeating: 0, count: 16)
         let status = bytes.withUnsafeMutableBytes { buffer -> Int32 in
@@ -52,7 +56,10 @@ public final class PreviewWebView: WKWebView {
     /// be ignored in its presence by CSP2-era parsers and, more to the point,
     /// it is the thing being removed), no `'strict-dynamic'`, no host.
     ///
-    /// Remote images pass through the timeout-enforcing image scheme from main.
+    /// `img-src` permits only embedded data and validated local images.
+    /// HTTP(S) remains blocked even for legacy opt-in settings: WebKit does
+    /// not expose an enforceable byte cap for these subresources. Re-enabling
+    /// network images requires preserving the original 25 MiB response limit.
     /// Bundled fonts retain their private resource scheme; scripts and styles
     /// stay inline and no script supplied by a preview receives a nonce.
     ///
@@ -65,14 +72,15 @@ public final class PreviewWebView: WKWebView {
     /// the attacker's favour.
     ///
     /// Must contain no `"` or `\` — it is interpolated into a JS string literal
-    /// by `cspUserScriptSource(nonce:)`. `makeNonce()`'s base64 output holds
+    /// by `cspUserScriptSource(nonce:allowExternalImages:)`. `makeNonce()`'s base64 output holds
     /// that invariant for the one part of the string that varies.
-    public nonisolated static func contentSecurityPolicy(nonce: String) -> String {
-        "default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline'; "
-        + "img-src data: quicklook-image:; font-src data: quicklook-resource://bundle; base-uri 'none'; form-action 'none';"
+    public nonisolated static func contentSecurityPolicy(nonce: String, allowExternalImages: Bool) -> String {
+        let imageSources = "data: quicklook-local:"
+        return "default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline'; "
+        + "img-src \(imageSources); font-src data: quicklook-resource://bundle; base-uri 'none'; form-action 'none';"
     }
 
-    /// Installs `contentSecurityPolicy(nonce:)` as a `<meta http-equiv>` before the
+    /// Installs `contentSecurityPolicy(nonce:allowExternalImages:)` as a `<meta http-equiv>` before the
     /// document's own markup is parsed.
     ///
     /// At `.atDocumentStart` for a `loadHTMLString` load, `document.head` is
@@ -82,12 +90,12 @@ public final class PreviewWebView: WKWebView {
     /// is created when it is missing instead of being dereferenced on faith.
     /// `PreviewWebViewLiveTests` asserts the meta really lands in a loaded
     /// document; this comment is not the guarantee, that test is.
-    nonisolated static func cspUserScriptSource(nonce: String) -> String {
+    nonisolated static func cspUserScriptSource(nonce: String, allowExternalImages: Bool) -> String {
         """
         (function() {
             var meta = document.createElement('meta');
             meta.httpEquiv = 'Content-Security-Policy';
-            meta.content = "\(contentSecurityPolicy(nonce: nonce))";
+            meta.content = "\(contentSecurityPolicy(nonce: nonce, allowExternalImages: allowExternalImages))";
             var root = document.documentElement;
             if (!root) {
                 root = document.createElement('html');
@@ -104,7 +112,7 @@ public final class PreviewWebView: WKWebView {
     }
 
     private let resourceHandler: BundledResourceSchemeHandler
-    private let imageHandler: ExternalImageSchemeHandler
+    private let localImageHandler: LocalImageSchemeHandler
 
     /// The user content controller this view's policy is installed into.
     ///
@@ -114,21 +122,29 @@ public final class PreviewWebView: WKWebView {
     /// was handed to `super.init`.
     private let contentController: WKUserContentController
 
-    /// The nonce the most recent `loadHTML(_:resourcesURL:nonce:)` installed.
+    /// The nonce the most recent `loadHTML(_:resourcesURL:nonce:notice:documentDirectory:)` installed.
     ///
     /// Exposed so a test can prove two loads got different values; nothing in
     /// the app reads it.
     public private(set) var installedNonce: String
 
+    /// Legacy requested setting, retained for config/source compatibility.
+    /// It does not override the current network-image quarantine.
+    public let allowExternalImages: Bool
+
+    /// `imageTimeoutSeconds` is kept for source compatibility and is unused:
+    /// remote images are blocked before a request can start. A future bounded
+    /// transport must own timeout enforcement as well as the response byte cap.
     public init(frame: CGRect = .zero, imageTimeoutSeconds: TimeInterval = 3, allowExternalImages: Bool = false) {
         let resourceHandler = BundledResourceSchemeHandler()
-        let imageHandler = ExternalImageSchemeHandler(timeout: imageTimeoutSeconds, allowExternalImages: allowExternalImages)
         self.resourceHandler = resourceHandler
-        self.imageHandler = imageHandler
+        let localImageHandler = LocalImageSchemeHandler()
+        self.localImageHandler = localImageHandler
+        self.allowExternalImages = allowExternalImages
 
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(resourceHandler, forURLScheme: BundledResourceSchemeHandler.scheme)
-        config.setURLSchemeHandler(imageHandler, forURLScheme: ExternalImageSchemeHandler.scheme)
+        config.setURLSchemeHandler(localImageHandler, forURLScheme: LocalImageSchemeHandler.scheme)
         config.preferences.setValue(false, forKey: "allowFileAccessFromFileURLs")
 
         // A policy is installed before any load, not only in `loadHTML`, so a
@@ -140,7 +156,7 @@ public final class PreviewWebView: WKWebView {
         let contentController = WKUserContentController()
         self.contentController = contentController
         contentController.addUserScript(WKUserScript(
-            source: Self.cspUserScriptSource(nonce: nonce),
+            source: Self.cspUserScriptSource(nonce: nonce, allowExternalImages: allowExternalImages),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
@@ -162,11 +178,36 @@ public final class PreviewWebView: WKWebView {
     private func installCSPUserScript(nonce: String) {
         contentController.removeAllUserScripts()
         contentController.addUserScript(WKUserScript(
-            source: Self.cspUserScriptSource(nonce: nonce),
+            source: Self.cspUserScriptSource(nonce: nonce, allowExternalImages: allowExternalImages),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
         installedNonce = nonce
+    }
+
+    public nonisolated static let unreadableSettingsNotice = "Settings could not be read; using defaults."
+
+    /// Inserts `notice` as the body's first child once the document is parsed.
+    ///
+    /// A user script rather than markup, so no renderer has to know about it,
+    /// and exempt from the document's CSP. The text is JSON-encoded into the
+    /// script and set through `textContent`, never interpolated as HTML.
+    private nonisolated static func noticeUserScript(_ notice: String) -> WKUserScript {
+        let literal = (try? JSONEncoder().encode(notice)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
+        return WKUserScript(
+            source: """
+            (function() {
+                if (!document.body) { return; }
+                var div = document.createElement('div');
+                div.className = 'settings-notice';
+                div.setAttribute('role', 'status');
+                div.textContent = \(literal);
+                document.body.prepend(div);
+            })();
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
     }
 
     @available(*, unavailable)
@@ -191,10 +232,19 @@ public final class PreviewWebView: WKWebView {
     /// nonce and all — before the web view ever sees it; and it cannot live in
     /// the template alone, because WebKit ignores a parser-inserted meta CSP
     /// when a DOM-inserted one is already present, which is exactly what
-    /// `cspUserScriptSource(nonce:)` creates. The user script's policy is the
+    /// `cspUserScriptSource(nonce:allowExternalImages:)` creates. The user script's policy is the
     /// only policy the document actually gets.
-    public func loadHTML(_ html: String, resourcesURL: URL?, nonce: String) {
+    ///
+    /// `documentDirectory` is where the previewed file lives; relative image
+    /// references in the document are resolved against it (see
+    /// `LocalImageSchemeHandler`). It is not the `baseURL`, which stays the
+    /// bundle's resource directory.
+    public func loadHTML(
+        _ html: String, resourcesURL: URL?, nonce: String, notice: String? = nil, documentDirectory: URL? = nil
+    ) {
         installCSPUserScript(nonce: nonce)
+        localImageHandler.setDocumentDirectory(documentDirectory)
+        if let notice { contentController.addUserScript(Self.noticeUserScript(notice)) }
         resourceHandler.setRootURL(resourcesURL)
         pendingLoadBaseURL = resourcesURL
         hasPendingLoad = true

@@ -1,3 +1,6 @@
+import ImageIO
+import Network
+import UniformTypeIdentifiers
 import WebKit
 import XCTest
 @testable import Shared
@@ -5,6 +8,8 @@ import XCTest
 @MainActor
 final class PreviewWebViewIntegrationTests: XCTestCase {
     private let nonce = PreviewWebView.makeNonce()
+    /// Keeps the probe's web view alive for the whole test.
+    private var remoteImageWebView: PreviewWebView?
 
     func testMarkdownLoadsBundledLibrariesAndRendersWithoutExecutingRawHTMLHandlers() async throws {
         let renderer = MarkdownRenderer()
@@ -18,7 +23,7 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
 
             Inline math: $E=mc^2$
 
-            <img id="raw-html" src="x" onerror="globalThis.pwned = true">
+            <img id="raw-html" src="data:," onerror="globalThis.pwned = true">
             """,
             config: AppConfig(),
             fileExtension: "md", nonce: nonce
@@ -69,6 +74,103 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         ) as? Bool
 
         XCTAssertEqual(externalImageExists, false)
+    }
+
+    func testRemoteImageIsRefusedByPolicyWhenOff() async throws {
+        let html = HTMLTemplate.wrap(
+            body: """
+            <script nonce="\(nonce)">
+            globalThis.violations = [];
+            document.addEventListener('securitypolicyviolation', function(event) {
+                globalThis.violations.push(event.blockedURI);
+            });
+            </script>
+            <img src="https://example.test/x.png">
+            """,
+            rendererType: "markdown", nonce: nonce, allowExternalImages: false
+        )
+        let webView = PreviewWebView(allowExternalImages: false)
+
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
+
+        try await waitUntilTrue(
+            in: webView,
+            expression: "globalThis.violations.some(function(uri) { return uri.indexOf('https://example.test') === 0; })"
+        )
+    }
+
+    /// Spec: with images off the CSP refuses the remote image and no request
+    /// reaches the host. Counting accepted connections on a loopback listener
+    /// proves the second half; the paired control proves the probe can see a
+    /// connection at all, so a zero is not vacuous.
+    func testRemoteImageSendsNoRequestWhenOff() async throws {
+        let silent = try await SilentListener.start()
+        defer { silent.stop() }
+
+        try await loadRemoteImage(allowExternalImages: false, port: silent.port)
+        try await Task.sleep(for: .milliseconds(500))
+
+        XCTAssertEqual(silent.connectionCount, 0, "a remote image request reached the server with images off")
+    }
+
+    func testLegacyImagesOnSendsNoRequestUntilByteLimitCanBeEnforced() async throws {
+        let silent = try await SilentListener.start()
+        defer { silent.stop() }
+
+        try await loadRemoteImage(allowExternalImages: true, port: silent.port)
+        try await Task.sleep(for: .milliseconds(500))
+
+        XCTAssertEqual(silent.connectionCount, 0, "legacy opt-in bypassed the response-size policy")
+    }
+
+    func testResponsiveAndLazyRemoteImagesAreBlockedWithoutRequests() async throws {
+        let silent = try await SilentListener.start()
+        defer { silent.stop() }
+        let url = "http://127.0.0.1:\(silent.port)/large.png"
+        let html = HTMLTemplate.wrap(body: """
+            <img srcset="\(url) 1x">
+            <picture><source srcset="\(url) 1x"><img src="data:image/png;base64,aA=="></picture>
+            <img loading="lazy" style="margin-top:10000px" src="\(url)">
+            """, rendererType: "markdown", nonce: nonce, allowExternalImages: true)
+        let web = PreviewWebView(allowExternalImages: true)
+        web.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
+        try await waitUntilTrue(in: web, expression: "document.querySelectorAll('.external-image-blocked').length === 3")
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(silent.connectionCount, 0)
+    }
+
+    private func loadRemoteImage(allowExternalImages: Bool, port: UInt16) async throws {
+        let html = HTMLTemplate.wrap(
+            body: "<img src=\"http://127.0.0.1:\(port)/x.png\">",
+            rendererType: "markdown", nonce: nonce,
+            allowExternalImages: allowExternalImages, imageTimeoutSeconds: 30
+        )
+        let webView = PreviewWebView(allowExternalImages: allowExternalImages)
+        remoteImageWebView = webView
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
+        try await waitUntilTrue(
+            in: webView,
+            expression: "document.documentElement.dataset.quicklookReady === 'true'"
+        )
+    }
+
+    func testUnansweredRemoteImageIsBlockedBeforeStartingARequest() async throws {
+        let silent = try await SilentListener.start()
+        defer { silent.stop() }
+        let html = HTMLTemplate.wrap(body: "<img src=\"http://127.0.0.1:\(silent.port)/x.png\">",
+                                     rendererType: "markdown", nonce: nonce,
+                                     allowExternalImages: true, imageTimeoutSeconds: 1)
+        let web = PreviewWebView(allowExternalImages: true)
+        web.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce)
+        try await waitUntilTrue(in: web, expression: "document.querySelector('.external-image-blocked') !== null")
+        XCTAssertEqual(silent.connectionCount, 0)
+    }
+
+    func testNoQuicklookImageSchemeRemains() {
+        for allow in [false, true] {
+            let html = HTMLTemplate.wrap(body: "<p>x</p>", rendererType: "markdown", nonce: nonce, allowExternalImages: allow)
+            XCTAssertFalse(html.contains("quicklook-image"))
+        }
     }
 
     func testAllowsAnchorButBlocksProgrammaticExternalNavigation() async throws {
@@ -174,6 +276,61 @@ final class PreviewWebViewIntegrationTests: XCTestCase {
         XCTAssertEqual(crossOriginScriptRan, false)
     }
 
+    func testRelativeImageRendersThroughLocalScheme() async throws {
+        let directory = try makeDocumentDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("pic.png"))
+        let html = MarkdownRenderer().render(
+            content: "![x](pic.png)", config: AppConfig(), fileExtension: "md", nonce: nonce
+        )
+        let webView = PreviewWebView()
+
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce, documentDirectory: directory)
+
+        try await waitUntilTrue(
+            in: webView,
+            expression: "document.querySelector('img')?.naturalWidth > 0"
+        )
+        let src = try await webView.evaluateJavaScript("document.querySelector('img').src") as? String
+        XCTAssertEqual(src?.hasPrefix("quicklook-local://image/"), true)
+    }
+
+    func testMissingRelativeImageBecomesPlaceholder() async throws {
+        let directory = try makeDocumentDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let html = MarkdownRenderer().render(
+            content: "![x](missing.png)", config: AppConfig(), fileExtension: "md", nonce: nonce
+        )
+        let webView = PreviewWebView()
+
+        webView.loadHTML(html, resourcesURL: try resourcesURL(), nonce: nonce, documentDirectory: directory)
+
+        try await waitUntilTrue(
+            in: webView,
+            expression: "document.querySelector('.placeholder-image')?.textContent === 'Image unavailable' && document.querySelector('img') === null"
+        )
+    }
+
+    private func makeDocumentDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("relative-image-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func writePNG(_ url: URL) throws {
+        let context = try XCTUnwrap(CGContext(
+            data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+        let image = try XCTUnwrap(context.makeImage())
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+    }
+
     private func resourcesURL() throws -> URL {
         try XCTUnwrap(Bundle(for: ConfigLoader.self).resourceURL)
     }
@@ -234,4 +391,73 @@ private final class CSPProbeSchemeHandler: NSObject, WKURLSchemeHandler, @unchec
     }
 
     func webView(_ webView: WKWebView, stop urlSchemeTask: any WKURLSchemeTask) {}
+}
+
+/// A loopback TCP listener that accepts connections and never replies.
+private final class SilentListener: @unchecked Sendable {
+    let port: UInt16
+    private let listener: NWListener
+    private let lock = NSLock()
+    private var connections: [NWConnection] = []
+    private var accepted = 0
+
+    /// Connections accepted since `start()`; unaffected by `stop()`.
+    var connectionCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return accepted
+    }
+
+    private init(listener: NWListener, port: UInt16) {
+        self.listener = listener
+        self.port = port
+    }
+
+    static func start() async throws -> SilentListener {
+        let listener = try NWListener(using: .tcp, on: .any)
+        let queue = DispatchQueue(label: "silent-listener")
+        let port: UInt16 = try await withCheckedThrowingContinuation { continuation in
+            let once = OnceFlag()
+            listener.stateUpdateHandler = { state in
+                switch state {
+                case .ready where once.claim():
+                    continuation.resume(returning: listener.port?.rawValue ?? 0)
+                case .failed(let error) where once.claim():
+                    continuation.resume(throwing: error)
+                default:
+                    break
+                }
+            }
+            listener.newConnectionHandler = { _ in }
+            listener.start(queue: queue)
+        }
+        let silent = SilentListener(listener: listener, port: port)
+        listener.newConnectionHandler = { [weak silent] connection in
+            guard let silent else { return }
+            silent.lock.lock()
+            silent.connections.append(connection)
+            silent.accepted += 1
+            silent.lock.unlock()
+            connection.start(queue: queue)   // accepted, then left silent
+        }
+        return silent
+    }
+
+    func stop() {
+        listener.cancel()
+        lock.lock()
+        connections.forEach { $0.cancel() }
+        connections.removeAll()
+        lock.unlock()
+    }
+}
+
+private final class OnceFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var used = false
+    /// True only for the first caller.
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        defer { used = true }
+        return !used
+    }
 }

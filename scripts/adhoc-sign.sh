@@ -8,11 +8,9 @@
 #   the linker's placeholder and `codesign -v` reports "code object is not signed
 #   at all" -- the extension never appears in System Settings > Extensions.
 #
-#   Turning Xcode signing back on is not an option either: the App Group
-#   entitlement makes the build system demand a provisioning profile
-#   ("requires a provisioning profile. Enable development signing..."), which
-#   would tie the project to one developer's team. `codesign` itself has no such
-#   objection to an ad-hoc signature with those entitlements.
+#   Turning Xcode signing back on is not forbidden, but it is out of scope of
+#   docs/superpowers/plans/2026-10-26-runtime-and-file-type-settings.md
+#   (the App Group that once blocked it is gone).
 #
 # So the build stays unsigned and this script signs inside-out afterwards:
 # framework, then extension, then app. Signing the app first would be undone --
@@ -53,6 +51,10 @@ sign() {
         codesign --force --sign - --timestamp=none "$target"
     fi
 }
+
+# Do not produce a superficially valid signature for an unfinished app bundle.
+[ -f "$APP/Contents/Info.plist" ] || { echo "host Info.plist must exist before signing" >&2; exit 1; }
+/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist" >/dev/null
 
 sign "$FRAMEWORK"
 sign "$APPEX" "$SRCROOT/QuickLookExtension/QuickLookExtension.entitlements"

@@ -1,0 +1,158 @@
+{
+  "version": "11.12.0",
+  "core_sha256": "8ab71eb09c51f501e5e25157d9cff100e46cc29bcbfc744d0b746d451fca7f53",
+  "combined_sha256": "60d75b787e2ff124246c39814c3983809af25f376fe826741846cff186ae1f65",
+  "supplemental": [
+    {
+      "language": "powershell",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/powershell.min.js",
+      "sha256": "fc298b3e0db362e531e6d58988b7a78f83da19df6b5d74db75bc961b2bfbfd3d"
+    },
+    {
+      "language": "dos",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/dos.min.js",
+      "sha256": "e184a6f9cead550b7b39b6114d17cafd08904557317622d7ea488aed01cf31ee"
+    },
+    {
+      "language": "dockerfile",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/dockerfile.min.js",
+      "sha256": "d96f73b077d654d776795097cf49afae5dce3ce453106af022eae013ad2ec8b1"
+    },
+    {
+      "language": "cmake",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/cmake.min.js",
+      "sha256": "0cd6dc22b0b99dc53a4288ae30f760dab4da12ddde570f617be30a396b5b97ec"
+    },
+    {
+      "language": "dart",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/dart.min.js",
+      "sha256": "0afb39830e15611e0415131a4c375a68596c5c330ed7fa1d20e2efaddbb37d34"
+    },
+    {
+      "language": "scala",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/scala.min.js",
+      "sha256": "2d70612619556e1d39566e9d23bc0e890a75ec027911eca0d6ab7987430b201a"
+    },
+    {
+      "language": "groovy",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/groovy.min.js",
+      "sha256": "55b81d783372ed6c8c99d5c3568113845dceb93ea454c54f61582ef8d2970a17"
+    },
+    {
+      "language": "gradle",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/gradle.min.js",
+      "sha256": "03977cf861c7daafe75bbf9aa5bcb39f428fb5ea113ba282dde61f85fde6fe9e"
+    },
+    {
+      "language": "elixir",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/elixir.min.js",
+      "sha256": "c45c72f60c2a693341d41fab47b8c8fe4bf11221469a4c5a20fe5f2bd4e6f215"
+    },
+    {
+      "language": "erlang",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/erlang.min.js",
+      "sha256": "5e1b88cdc7bc4e83cb989f558aa2ad06f610f961d66a7466cbd1fd402e7a8515"
+    },
+    {
+      "language": "haskell",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/haskell.min.js",
+      "sha256": "1410ffe7480a489e5efa668b58fcef5ab6cc3439df587e6919936d0a6365c02b"
+    },
+    {
+      "language": "ocaml",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/ocaml.min.js",
+      "sha256": "8ac1edaa65626ef2390d321c1c17342702658bcccc7913b4b6d47cd1edb817d2"
+    },
+    {
+      "language": "fsharp",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/fsharp.min.js",
+      "sha256": "4eccd0e3457b8a8f10c771149e174a4fcd9614fdd713d16e3f67cd5f18379d99"
+    },
+    {
+      "language": "clojure",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/clojure.min.js",
+      "sha256": "f5e2b3e886c93d972a8512ae889189476265a3e14dd79bd57f565e98c5c11c3d"
+    },
+    {
+      "language": "lisp",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/lisp.min.js",
+      "sha256": "ffdeab1afc214245015ef80500e4831712700d98c81c55e391325f39e01edc98"
+    },
+    {
+      "language": "scheme",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/scheme.min.js",
+      "sha256": "60bbf1b62f2ef7769a90e5210e23ce7a7ed095e976aeb7f882e3f842fdde4686"
+    },
+    {
+      "language": "julia",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/julia.min.js",
+      "sha256": "fc613061cb53008f24164512da3f6d6817c4b248ae227dc8233108c7fb704728"
+    },
+    {
+      "language": "fortran",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/fortran.min.js",
+      "sha256": "0d7ee562b350e805f9e43d4ebd91388754cc92860c2efaa90f698fdb9be1419e"
+    },
+    {
+      "language": "matlab",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/matlab.min.js",
+      "sha256": "d3dd55e6d0d59699082e01350250ddd790f065d158739ca3fd78c7dea6f443dd"
+    },
+    {
+      "language": "prolog",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/prolog.min.js",
+      "sha256": "0d92db64efc685031a3a16663fcbf6109cc42393697fb623b112464c221288e6"
+    },
+    {
+      "language": "verilog",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/verilog.min.js",
+      "sha256": "29eeb8cf321e47c3a4a2ac0cd98aa3c87ef6b4438eddd49915a10defa3649fbd"
+    },
+    {
+      "language": "vhdl",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/vhdl.min.js",
+      "sha256": "b55e52c3fe90b22451d6b956053834e59ef3c6093f2a1b88d5ffbb3fb2c8484d"
+    },
+    {
+      "language": "armasm",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/armasm.min.js",
+      "sha256": "d6224ddeb6b3a0db31041a5b1b5fb8377e5042bdd547488f781828b1acf5c689"
+    },
+    {
+      "language": "x86asm",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/x86asm.min.js",
+      "sha256": "364f595481fbb9c75fcb0907c534f904aa9cbf5ec27b36f70addf4d54c0fcfcf"
+    },
+    {
+      "language": "nix",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/nix.min.js",
+      "sha256": "b3fb414b263a3e7c3c493a49da2e9f1aacbc06248f4cbf5c6247c338caafdf3a"
+    },
+    {
+      "language": "nginx",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/nginx.min.js",
+      "sha256": "8c53cc63ce0cf4ec0ad80b77273de23dec6974ab069d46d14d5c75febe880e1f"
+    },
+    {
+      "language": "apache",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/apache.min.js",
+      "sha256": "9dc53948535832b25d4eb23d40fef70510317398fdaf15f8a3fcc3ae7e0c490c"
+    },
+    {
+      "language": "latex",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/latex.min.js",
+      "sha256": "12c8743607535b327bcebd954b0228cf39b7844704123319a7fb594a7db94ce7"
+    },
+    {
+      "language": "protobuf",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/protobuf.min.js",
+      "sha256": "67f3f53b99c3c6e9b393cf95d164632ccebaf0ec8a7f1f1f896edf259496b784"
+    },
+    {
+      "language": "nim",
+      "url": "https://raw.githubusercontent.com/highlightjs/cdn-release/11.12.0/build/languages/nim.min.js",
+      "sha256": "a70ccfae244bb61b79d05ddfd4051ce12e95b65574bba8029d94a32bf598c9c9"
+    }
+  ],
+  "license": "BSD-3-Clause; existing bundled highlight.LICENSE.txt applies"
+}

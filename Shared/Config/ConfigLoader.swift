@@ -1,5 +1,13 @@
 // Shared/Config/ConfigLoader.swift
 import Foundation
+import os
+
+/// What a read of `config.json` produced, and whether the file was there but
+/// could not be used (so the caller can say so instead of silently showing defaults).
+public struct ConfigLoadResult: Sendable {
+    public let config: AppConfig
+    public let isUnreadable: Bool
+}
 
 public final class ConfigLoader: Sendable {
     public static let didSave = Notification.Name("QuickLookConfigurationDidSave")
@@ -10,26 +18,47 @@ public final class ConfigLoader: Sendable {
         self.containerURL = containerURL
     }
 
-    public convenience init() {
-        let groupURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.com.yohanpark.AllYouNeedQuickLook"
-        ) ?? FileManager.default.temporaryDirectory
-        self.init(containerURL: groupURL)
+    /// `~/Library/Application Support/AllYouNeedQuickLook` under the *real* home.
+    ///
+    /// `NSHomeDirectory()` inside a sandbox is the container, so the real home
+    /// comes from the password database. The host may write here through a
+    /// home-relative entitlement and the extension reads it through a read-only
+    /// absolute-path entitlement; no App Group is involved.
+    public static var defaultDirectory: URL {
+        let home = getpwuid(getuid()).map { String(cString: $0.pointee.pw_dir) } ?? NSHomeDirectory()
+        return URL(fileURLWithPath: home, isDirectory: true)
+            .appendingPathComponent("Library/Application Support/AllYouNeedQuickLook", isDirectory: true)
     }
+
+    public convenience init() {
+        self.init(containerURL: Self.defaultDirectory)
+    }
+
+    private static let logger = Logger(subsystem: "com.yohanpark.AllYouNeedQuickLook", category: "config")
 
     private var configFileURL: URL {
         containerURL.appendingPathComponent(configFileName)
     }
 
     public func load() -> AppConfig {
-        guard FileManager.default.fileExists(atPath: configFileURL.path) else {
-            return Self.bundledDefault()
-        }
+        loadResult().config
+    }
+
+    /// A missing file is the normal first-run state and yields the bundled
+    /// default with `isUnreadable == false`. A file that exists but cannot be
+    /// read or decoded yields the same default with `isUnreadable == true`.
+    public func loadResult() -> ConfigLoadResult {
         do {
             let data = try Data(contentsOf: configFileURL)
-            return try JSONDecoder().decode(AppConfig.self, from: data)
+            return ConfigLoadResult(config: try JSONDecoder().decode(AppConfig.self, from: data), isUnreadable: false)
         } catch {
-            return Self.bundledDefault()
+            let errorCode = (error as NSError)
+            if errorCode.domain == NSCocoaErrorDomain &&
+                (errorCode.code == NSFileReadNoSuchFileError || errorCode.code == NSFileNoSuchFileError) {
+                return ConfigLoadResult(config: Self.bundledDefault(), isUnreadable: false)
+            }
+            Self.logger.error("Could not read \(self.configFileURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
+            return ConfigLoadResult(config: Self.bundledDefault(), isUnreadable: true)
         }
     }
 
@@ -37,8 +66,26 @@ public final class ConfigLoader: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(config)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
         try data.write(to: configFileURL, options: .atomic)
         NotificationCenter.default.post(name: Self.didSave, object: nil)
+    }
+
+    /// Persist only the new extension against disk state; keep unrelated draft edits in memory.
+    public func saveAddedFileType(_ input: String, draft: AppConfig) throws -> AppConfig {
+        let support = FileTypeSupport(supportedTypeIdentifiers: [])
+        let current = loadResult()
+        guard !current.isUnreadable else { throw CocoaError(.fileReadNoPermission) }
+        let saved = try support.adding(input, to: current.config)
+        if saved != current.config { try save(saved) }
+        return try support.adding(input, to: draft)
+    }
+
+    /// Explicit user-selected import, including readable legacy App Group JSON.
+    /// Decode before writing, so a malformed import never replaces saved settings.
+    public func importConfiguration(from url: URL) throws {
+        let config = try JSONDecoder().decode(AppConfig.self, from: Data(contentsOf: url))
+        try save(config)
     }
 
     /// The shipped default configuration — `Shared/Resources/default-config.json`.
