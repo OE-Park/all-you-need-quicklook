@@ -1,14 +1,16 @@
 # All You Need QuickLook 진행상황
 
-문서 갱신 시각: 2026-10-26 19:50 KST
+문서 갱신일: 2026-10-27 KST
 
-현재 작업은 **PR #14 리뷰 수정 및 정식 이름의 로컬 설치 검증 단계**다.
-리뷰 7건을 검토하고 설정 저장·가져오기·오류 처리와 외부 이미지 차단을 수정했다.
-확인된 기존 프로젝트 앱 사본을 정리하고 `/Applications/AllYouNeedQuickLook.app`을
-설치했다. 설정은 기본값으로 초기화했고 Finder에서 설치 경로와 렌더링을 확인했다.
-외부 이미지는 25 MiB 제한을 보장할 전송 구현 전까지 의도적으로 비활성화한다.
+현재 작업은 **소스코드·스크립트 확장 지원 확대 및 네이티브 활성화 방식 정리**다.
+소스 타입 61개 그룹에 확장자 252개 선언, 시스템·편집기 타입 48개 구체 지원 선언을 추가했다.
+PowerShell 등 공식 추가 문법 30개, BOM 기반 Unicode 디코더, 서식 전용 UI 안내를 반영했다.
+정식 `/Applications/AllYouNeedQuickLook.app`을 교체하고 Finder에서 PowerShell·UTF-16 한글·배치·Bash·sh·CMake·일반 텍스트 대체 표시를 확인했다.
+활성화는 macOS 시스템 설정에서 관리하며 기존 사용자 설정은 보존했다.
 
-최신 근거: [PR 리뷰·설치 검증](docs/validation/2026-10-26-pr-review-clean-install.md).
+최신 근거: [소스 확장 검증](docs/validation/2026-10-27-source-formats.md).
+지원 목록: [SOURCE_FORMATS.md](docs/SOURCE_FORMATS.md).
+아래 이전 PR 검증·정리 기록은 이 문단의 최신 상태보다 우선하지 않는다.
 
 ## 작업 폴더와 Git
 
@@ -52,7 +54,7 @@
 
 ### 로컬 실행
 
-- 리뷰 수정 후 **XCTest 279개 통과, 실패 0개**.
+- 리뷰 수정 후 **XCTest 285개 통과, 실패 0개**.
 - 랜덤 앱 `dd38b75d`의 호스트·확장 빌드 및 deep/strict 서명 검증 통과. 이 사본은 실행하지 않음.
 - 컴퓨터 도구로 확장자 즉시 저장, 미지원 안내, 호스트 YAML·Notebook, 시스템 설정 연결 확인.
 - Finder Space에서 빌드 식별 표시를 기준으로 YAML·Markdown·Notebook·로그·Plotly·로컬 이미지 확인.

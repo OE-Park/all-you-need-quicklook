@@ -15,6 +15,7 @@ rebuilt, so do not keep anything else there.
 import base64
 import json
 import os
+import re
 import shutil
 import struct
 import sys
@@ -273,10 +274,10 @@ SELECT name, count(*) FROM users WHERE active = true GROUP BY name;
 .preview { background: var(--bg); color: var(--text); }
 ```
 
-## Fences the bundle does NOT have — label expected
+## Additional languages and unsupported fences
 
-Each must show a small grey `no highlighter for "…"` label, with best-effort
-colour from auto-detection underneath.
+Dockerfile, Scala and Haskell now have bundled grammars and should be coloured.
+Terraform has no bundled grammar and shows a grey unsupported-language label.
 
 ```dockerfile
 FROM alpine:3.19
@@ -1023,6 +1024,47 @@ diff --git a/Shared/Renderers/MarkdownRenderer.swift b/Shared/Renderers/Markdown
 """,
 }
 
+# Every declared source suffix earns a routing sample. The Swift map is the
+# source of truth, so extending it cannot silently omit corpus coverage.
+map_source = (Path(__file__).resolve().parents[1] / "Shared/Config/SyntaxLanguageMap.swift").read_text()
+source_extensions = dict(re.findall(r'"([a-z0-9+_-]+)": "([a-z0-9]+)"', map_source))
+source_examples = {
+    "powershell": 'param([string]$Name = "QuickLook")\n# PowerShell preview\nWrite-Host "Hello $Name"\nGet-ChildItem | Where-Object { $_.Length -gt 0 }\n',
+    "bash": '#!/usr/bin/env bash\nset -euo pipefail\nname="QuickLook"\nprintf "Hello %s\\n" "$name"\n',
+    "dos": '@echo off\nrem Windows batch preview\nset NAME=QuickLook\necho Hello %NAME%\n',
+    "python": 'def greet(name: str):\n    return f"Hello {name}"\nprint(greet("QuickLook"))\n',
+    "cmake": 'cmake_minimum_required(VERSION 3.20)\nproject(QuickLookPreview)\nadd_executable(preview main.cpp)\n',
+    "dart": 'void main() {\n  final name = "QuickLook";\n  print("Hello $name");\n}\n',
+    "elixir": 'defmodule Preview do\n  def greet(name), do: "Hello #{name}"\nend\n',
+    "erlang": '-module(preview).\n-export([hello/0]).\nhello() -> io:format("Hello QuickLook~n").\n',
+    "fsharp": 'let greet name = sprintf "Hello %s" name\nprintfn "%s" (greet "QuickLook")\n',
+    "haskell": 'module Main where\nmain :: IO ()\nmain = putStrLn "Hello QuickLook"\n',
+    "julia": 'function greet(name)\n    println("Hello $name")\nend\ngreet("QuickLook")\n',
+    "fortran": 'program preview\n  implicit none\n  print *, "Hello QuickLook"\nend program preview\n',
+    "verilog": 'module preview(input clk, output reg ready);\nalways @(posedge clk) ready <= 1;\nendmodule\n',
+    "vhdl": 'library ieee;\nuse ieee.std_logic_1164.all;\nentity preview is\n  port (ready : out std_logic);\nend preview;\n',
+    "protobuf": 'syntax = "proto3";\nmessage Preview { string name = 1; }\n',
+    "xml": '<preview name="QuickLook"><ready>true</ready></preview>\n',
+    "ini": '[preview]\nname=QuickLook\nready=true\n',
+    "plaintext": '# Plain text fallback (no matching bundled grammar)\nname = "QuickLook"\nready = true\n',
+}
+for extension, language in sorted(source_extensions.items()):
+    if extension in {"ts", "md", "markdown"}:
+        continue
+    # This checks text rendering/routing, not whether the file is executable.
+    write(f"12-expanded-source/sample.{extension}", source_examples.get(language, f"// {language} source preview\nname = \"QuickLook\"\n"))
+write("12-expanded-source/unicode-utf16le.ps1", source_examples["powershell"].replace("Hello", "안녕"), encoding="utf-16")
+write("12-expanded-source/000-README.txt", """Expanded source/script routing corpus.
+Preview ps1, psm1, psd1, bash, zsh, cmd, cmake, dart, erl, fsx and f90 first.
+No file should execute. PowerShell/batch/CMake have coloured tokens.
+Plaintext fallback (tf, zig, fish, etc.) should stay readable without guessed syntax.
+.ts is intentionally excluded: it also names MPEG transport streams.
+Existing editors may own conflicting types (notably bat and exs); record which
+provider Finder selects rather than assuming this app must win.
+Check both appearances. Resolve the HTML resource path to /Applications before
+attributing a result to this app. System Settings alone controls activation.
+""")
+
 for name, source in SOURCES.items():
     write(f"06-source-code/{name}", source)
 
@@ -1322,7 +1364,7 @@ change the result.
   nested-background fix did not take.
 - `json`/`yaml`/`swift`/`python`/`bash`/`sql`/`diff`/`xml`/`css` fences
   coloured with **no** label.
-- `dockerfile`/`terraform`/`scala`/`haskell` fences showing a grey
+- Only the `terraform` fence showing a grey
   `no highlighter for "…"` label with best-effort colour underneath.
 - The fence with no language: plain, no label.
 - Math rendering. The renderer escapes `$` for a JavaScript template literal,
@@ -1375,6 +1417,12 @@ Watch for how long each takes. QuickLook re-renders from scratch every time.
 | `ansi-codes.log` | Escape sequences shown literally. ANSI conversion is wired to notebook tracebacks, not to `.log`. Known behaviour, not a defect. |
 | `plain.txt` | Uncoloured. May be the *system* preview rather than this extension — both declare `public.plain-text`. Unchanged either way. |
 | `notebook.ipynb` | Markdown cell spacing matching a `.md` document, code cells auto-detected, stream output, a coloured ANSI traceback, and a cell whose output contains `</script>` and `${1+1}` literally. |
+
+## 12-expanded-source — expanded source and script declarations
+
+One generated sample per declared suffix, including PowerShell modules/data, Bash,
+Windows batch, CMake and additional source languages. See its 000-README.txt for
+positive checks and conflict cases. These are static preview fixtures, never run them.
 
 ## 06-source-code — always routed, newly coloured
 

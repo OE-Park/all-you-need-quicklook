@@ -45,7 +45,7 @@ See [AGENTS.md](../AGENTS.md#status) for current design work and remaining manua
 verification. Keep progress in that section rather than duplicating completion
 claims here.
 
-In the recorded Finder checks, `.md`, `.ipynb` and `.log` used the extension; `.txt` used the system preview despite `public.plain-text` being declared. Declaring only that ancestor did not win `.log` routing in that environment; adding `com.apple.log` did. These observations do not establish a universal platform limitation. Keep `QLSupportedContentTypes` inside `NSExtension > NSExtensionAttributes`. New UTTypes and changing `.txt` routing are outside the render-time design scope.
+In the recorded Finder checks, `.md`, `.ipynb` and `.log` used the extension; `.txt` used the system preview despite `public.plain-text` being declared. Declaring only that ancestor did not win `.log` routing in that environment; adding `com.apple.log` did. These observations do not establish a universal platform limitation. Keep `QLSupportedContentTypes` inside `NSExtension > NSExtensionAttributes`. Source/script expansion now lives in `docs/SOURCE_FORMATS.md` and `docs/validation/2026-10-27-source-formats.md`; native System Settings controls activation. Host signing must depend on the processed Info.plist.
 
 ## Conventions
 

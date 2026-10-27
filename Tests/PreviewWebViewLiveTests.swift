@@ -134,6 +134,9 @@ final class PreviewWebViewLiveTests: XCTestCase {
         let web = loadComposed { HTMLTemplate.wrap(body: "", rendererType: "markdown", nonce: $0) }
         XCTAssertEqual(try evaluateString("typeof marked", in: web), "object")
         XCTAssertEqual(try evaluateString("typeof hljs", in: web), "object")
+        for language in SyntaxLanguageMap.allLanguages {
+            XCTAssertEqual(try evaluateString("String(Boolean(hljs.getLanguage('\(language)')))", in: web), "true", language)
+        }
         XCTAssertEqual(try evaluateString("typeof katex", in: web), "object")
     }
 
@@ -470,7 +473,7 @@ final class PreviewWebViewLiveTests: XCTestCase {
     /// highlight.js only warns to the console and leaves the block bare, so
     /// the renderer falls back to detection and marks what it could not do.
     func testUnsupportedFenceLanguageFallsBackAndIsMarked() throws {
-        let web = loadMarkdown("```dockerfile\nFROM alpine\n```")
+        let web = loadMarkdown("```aynql-unknown\nFROM alpine\n```")
         try waitForMarkdown(in: web)
 
         XCTAssertEqual(
@@ -478,7 +481,7 @@ final class PreviewWebViewLiveTests: XCTestCase {
                 "document.querySelector('#markdown-content pre code').getAttribute('data-unhighlighted-language')",
                 in: web
             ),
-            "dockerfile",
+            "aynql-unknown",
             "the block was left unmarked"
         )
         XCTAssertGreaterThan(
@@ -535,6 +538,18 @@ final class PreviewWebViewLiveTests: XCTestCase {
             try evaluateString("getComputedStyle(document.body).color", in: web),
             "tokens carry no colour of their own"
         )
+    }
+
+    func testPowerShellAndBatchHighlightUsingSupplementalGrammars() throws {
+        for (ext, text) in [("ps1", "param([string]$Name)\nWrite-Host \"Hello $Name\""),
+                            ("cmd", "@echo off\nset NAME=preview\necho %NAME%"),
+                            ("cmake", "cmake_minimum_required(VERSION 3.20)\nproject(Preview)")] {
+            let web = loadComposed { nonce in
+                PlainTextRenderer().render(content: text, config: AppConfig(), fileExtension: ext, nonce: nonce)
+            }
+            try waitForReady(in: web)
+            XCTAssertGreaterThan(Int(try evaluateString("document.querySelectorAll('#code-content [class^=\"hljs-\"]').length", in: web)) ?? 0, 0, ext)
+        }
     }
 
     func testYAMLHighlightsWithNoConfigurationAtAll() throws {

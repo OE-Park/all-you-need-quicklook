@@ -104,7 +104,7 @@ struct PreviewView: View {
                     forResource: (name as NSString).deletingPathExtension,
                     withExtension: (name as NSString).pathExtension
                 ),
-              let content = try? String(contentsOf: url, encoding: .utf8) else {
+              let content = try? SourceTextDecoder.read(from: url) else {
             return "Error: Could not load \(name)"
         }
         return content

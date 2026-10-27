@@ -30,14 +30,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     }
 
     func preparePreviewOfFile(at url: URL) async throws {
-        let content: String
-        if let utf8 = try? String(contentsOf: url, encoding: .utf8) {
-            content = utf8
-        } else if let latin1 = try? String(contentsOf: url, encoding: .isoLatin1) {
-            content = latin1
-        } else {
-            content = try String(contentsOf: url, encoding: .utf8)
-        }
+        let content = try SourceTextDecoder.read(from: url)
 
         let fileExtension = url.pathExtension.lowercased()
         let configResult = configLoader.loadResult()

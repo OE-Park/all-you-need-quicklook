@@ -39,8 +39,8 @@ struct SettingsView: View {
                     .disabled(true)
             }
 
-            Section("File Type Settings") {
-                Text("Adding an extension saves its formatting immediately. Finder support also requires a file type declared by this app and the Quick Look extension enabled in System Settings.")
+            Section("File Formatting") {
+                Text("Quick Look is turned on or off only in macOS System Settings. This app changes formatting preferences; adding an extension below does not enable a preview provider.")
                     .font(.callout).foregroundStyle(.secondary)
                 Button("Manage Quick Look in System Settings") {
                     if !ExtensionSettings.open() { saveError = ExtensionSettings.instructions }
@@ -57,7 +57,7 @@ struct SettingsView: View {
                 }
 
                 HStack {
-                    TextField("Add extension (e.g. yaml)", text: $newExtension)
+                    TextField("Add formatting override (e.g. ps1)", text: $newExtension)
                         .textFieldStyle(.roundedBorder)
                     Button("Add") {
                         do {

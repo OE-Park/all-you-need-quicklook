@@ -1,3 +1,14 @@
+# Source/script expansion checkpoint — 2026-10-27
+
+Current state: [PROJECT_STATUS.md](../../PROJECT_STATUS.md),
+[format list](../SOURCE_FORMATS.md), [validation](../validation/2026-10-27-source-formats.md).
+252 declared suffixes, official supplemental grammars, BOM-aware text decoding.
+Activation belongs to native System Settings; app settings change formatting only.
+The installed copy is `/Applications/AllYouNeedQuickLook.app`. Existing preferences preserved.
+The ad-hoc signing phase now depends on the processed host Info.plist.
+
+---
+
 # Current delivery checkpoint — 2026-10-26
 
 This checkout now integrates runtime and file-type settings work from the

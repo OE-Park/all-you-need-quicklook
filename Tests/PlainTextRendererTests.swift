@@ -168,7 +168,7 @@ final class PlainTextRendererTests: XCTestCase {
     }
 
     func testUnmappedExtensionStaysPlain() {
-        let html = renderer.render(content: "FROM alpine", config: AppConfig(), fileExtension: "dockerfile", nonce: nonce)
+        let html = renderer.render(content: "FROM alpine", config: AppConfig(), fileExtension: "aynql-unknown", nonce: nonce)
         XCTAssertFalse(html.contains("id=\"code-content\""))
         XCTAssertTrue(html.contains("FROM alpine"))
     }

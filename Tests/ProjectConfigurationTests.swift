@@ -11,15 +11,16 @@ final class ProjectConfigurationTests: XCTestCase {
         let attributes = try XCTUnwrap(extensionDictionary["NSExtensionAttributes"] as? [String: Any])
         let contentTypes = try XCTUnwrap(attributes["QLSupportedContentTypes"] as? [String])
 
-        XCTAssertEqual(
-            Set(contentTypes),
+        XCTAssertTrue(
+            Set(contentTypes).isSuperset(of:
             Set([
                 "public.plain-text", "com.apple.log",
                 "net.daringfireball.markdown", "org.jupyter.notebook",
                 // Data formats conform to public.text, never to
                 // public.plain-text, so each has to be named on its own.
                 "public.json", "public.yaml", "public.toml",
-            ])
+                "public.source-code", "public.script", "public.xml", "public.html", "public.css",
+            ]))
         )
         XCTAssertNil(propertyList["QLSupportedContentTypes"])
     }
@@ -67,12 +68,33 @@ final class ProjectConfigurationTests: XCTestCase {
                 conformanceByExtension[ext] = declaration["UTTypeConformsTo"] as? [String]
             }
         }
-        for ext in ["go", "rs"] {
+        for ext in ["go", "rs", "ps1", "psm1", "psd1", "bash", "zsh", "bat", "cmd", "dart", "cmake", "fsx", "erl", "tf", "zig"] {
             XCTAssertEqual(
                 conformanceByExtension[ext], ["public.source-code"],
                 ".\(ext) is not imported as source code"
             )
         }
+    }
+
+    func testHostAndExtensionDeclareTheSameSourceTypesWithoutClaimingMovies() throws {
+        let hostData = try Data(contentsOf: repositoryRoot.appendingPathComponent("AllYouNeedQuickLook/Info.plist"))
+        let host = try XCTUnwrap(PropertyListSerialization.propertyList(from: hostData, format: nil) as? [String: Any])
+        let hostTypes = try XCTUnwrap(host["UTImportedTypeDeclarations"] as? NSArray)
+        let extTypes = try XCTUnwrap(try extensionInfoPlist()["UTImportedTypeDeclarations"] as? NSArray)
+        XCTAssertEqual(hostTypes, extTypes)
+        let extInfo = try extensionInfoPlist()
+        let attrs = (extInfo["NSExtension"] as? [String: Any])?["NSExtensionAttributes"] as? [String: Any]
+        let supported = attrs?["QLSupportedContentTypes"] as? [String] ?? []
+        for declaration in extTypes.compactMap({ $0 as? [String: Any] }) {
+            XCTAssertTrue(supported.contains(declaration["UTTypeIdentifier"] as? String ?? ""))
+        }
+        let imported = extTypes.compactMap { $0 as? [String: Any] }.flatMap {
+            (($0["UTTypeTagSpecification"] as? [String: Any])?["public.filename-extension"] as? [String]) ?? []
+        }
+        XCTAssertGreaterThan(imported.count, 200)
+        XCTAssertFalse(imported.contains("ts"), "Do not reclassify MPEG transport stream files")
+        XCTAssertFalse(imported.contains("wasm"), "Binary WebAssembly is not text")
+        XCTAssertEqual(imported.count, Set(imported).count)
     }
 
     // MARK: - Entitlements

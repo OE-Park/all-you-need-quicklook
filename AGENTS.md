@@ -90,6 +90,7 @@ What it covers, and what each directory is for:
 | `04-size-limits` | `boundedPreview` on both bounds, either side of each |
 | `05-regression` | log level patterns, plain `.txt`, notebooks |
 | `06-source-code` | extension-driven language resolution |
+| `12-expanded-source` | suffix-by-suffix routing fixtures and UTF-16 PowerShell |
 | `07-not-claimed` | types deliberately left to the system preview |
 | `08-malformed` | graceful failure |
 | `11-sandbox-realities` | relative images (including `../`, `%20`, SVG and a refused fake), remote images off/on, Plotly figures, pandas HTML, HTML-only Plotly |
@@ -99,6 +100,13 @@ when previewed with Space in Finder, in **both** appearances — several cases
 (blockquote contrast, theme switching) are invisible in one of them.
 
 ## Status
+
+The source/script expansion checkpoint is in `PROJECT_STATUS.md` and
+`docs/validation/2026-10-27-source-formats.md`; the format list is
+`docs/SOURCE_FORMATS.md`. Native System Settings owns activation. The host's
+processed Info.plist is an explicit input to its ad-hoc signing phase.
+The historical baseline below does not supersede that checkpoint.
+
 
 Continuation starts at [HANDOFF.md](docs/superpowers/HANDOFF.md), which records
 the current checkpoint, next task, verification scope and cross-service prompt.

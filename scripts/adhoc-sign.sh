@@ -52,6 +52,10 @@ sign() {
     fi
 }
 
+# Do not produce a superficially valid signature for an unfinished app bundle.
+[ -f "$APP/Contents/Info.plist" ] || { echo "host Info.plist must exist before signing" >&2; exit 1; }
+/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist" >/dev/null
+
 sign "$FRAMEWORK"
 sign "$APPEX" "$SRCROOT/QuickLookExtension/QuickLookExtension.entitlements"
 sign "$APP"   "$SRCROOT/AllYouNeedQuickLook/AllYouNeedQuickLook.entitlements"

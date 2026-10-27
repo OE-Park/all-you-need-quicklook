@@ -110,7 +110,7 @@ final class ConfigSchemaTests: XCTestCase {
     }
 
     func testUnknownExtensionResolvesNoLanguageAndNoHighlight() {
-        let resolved = AppConfig().resolvedConfig(for: "dockerfile")
+        let resolved = AppConfig().resolvedConfig(for: "aynql-unknown")
         XCTAssertNil(resolved.syntaxLanguage)
         XCTAssertFalse(resolved.syntaxHighlight)
     }
